@@ -1,0 +1,37 @@
+# scanner-agent example configuration.
+
+max_buffered_events = 10000          # unacknowledged events kept during outages (oldest dropped)
+state_dir = "/var/lib/radio-agent"   # durable event journal (0700); omit to buffer in memory only
+max_scanners = 32
+
+[gateway]
+url = "wss://gateway.example.org:9443/agent/v1"
+ca = "/etc/radio/gateway-ca.pem"     # trusts the gateway's server certificate
+cert = "/etc/radio/agent.pem"        # DNS SAN = agent id registered via POST /api/v1/agents
+key = "/etc/radio/agent-key.pem"
+
+# Enforced locally: the agent never contacts scanners outside these ranges,
+# whatever the gateway requests.
+[network]
+allowed_networks = ["192.168.50.0/24"]
+allowed_ports = [50536]
+audio_ports = [554]    # RTSP; the agent is each scanner's only audio client
+
+[telemetry]
+mode = "push"          # PSI pushes with GSI polling fallback; or "poll"
+interval_ms = 500
+hang_time_ms = 2000    # squelch-closed time that ends a transmission
+
+
+# Audio session spacing: the scanner's audio server is reported to be
+# fragile, so sessions are spaced and backed off.
+[audio]
+cooldown_secs = 10
+backoff_max_secs = 300
+linger_secs = 15
+
+# Optional bootstrap so collection runs before the gateway is reachable.
+# [[scanners]]
+# scanner_id = "00000000-0000-0000-0000-000000000000"
+# name = "Rooftop SDS200"
+# host = "192.168.50.10"

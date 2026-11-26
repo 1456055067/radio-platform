@@ -1,0 +1,23 @@
+[package]
+name = "scanner-telemetry"
+description = "Scanner telemetry collection, snapshots and transmission detection"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+platform-common.workspace = true
+uniden-sds.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "macros", "rt"] }
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+sds-simulator.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+
+[lints]
+workspace = true

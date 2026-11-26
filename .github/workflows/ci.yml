@@ -1,0 +1,150 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --all-targets
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - name: Example configurations validate
+        run: |
+          cargo run -q -p api-gateway -- --check-config deployments/examples/gateway.example.toml
+          cargo run -q -p scanner-agent -- --check-config deployments/examples/agent.example.toml
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # .npmrc sets ignore-scripts: no dependency install hooks run.
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  postgres:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 2s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Store conformance and migrations on PostgreSQL
+        env:
+          TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
+        run: |
+          cargo test -p platform-storage -- --include-ignored
+          cargo test -p scanner-agent --test e2e -- --include-ignored two_replicas_over_postgres
+
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit
+      - name: Lockfile-only advisories are not built
+        run: |
+          for c in libsqlite3-sys; do
+            if cargo tree -i "$c" --workspace --target all -e all 2>/dev/null | grep -q .; then
+              echo "::error::$c is now part of the build graph; remove its audit ignore and fix"; exit 1
+            fi
+          done
+
+  helm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: helm lint deployments/helm/radio-platform
+      - name: Rendered gateway.toml passes the gateway's own checks
+        run: |
+          render() {
+            helm template t deployments/helm/radio-platform "$@" \
+              | yq 'select(.kind == "ConfigMap") | .data["gateway.toml"]' > /tmp/gateway.toml
+            cargo run -q -p api-gateway -- --check-config /tmp/gateway.toml
+          }
+          render
+          render --set replicaCount=1
+          render --set replicaCount=1 --set media.enabled=true --set media.publicAddress=203.0.113.5:50000
+      - name: Guard rails refuse unsafe values
+        run: |
+          if helm template t deployments/helm/radio-platform --set media.enabled=true --set media.publicAddress=x:1; then
+            echo "::error::media with several replicas was accepted"; exit 1
+          fi
+          if helm template t deployments/helm/radio-platform --set-string config='[http]'; then
+            echo "::error::a chart-owned table in config was accepted"; exit 1
+          fi
+
+  container:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build both images (not pushed)
+        run: |
+          for t in gateway agent; do
+            docker buildx build -f deployments/container/Dockerfile --target "$t" -t "radio-$t:ci" --load .
+          done
+      - name: Images run as non-root and validate the examples
+        run: |
+          test "$(docker inspect radio-gateway:ci --format '{{.Config.User}}')" = "65532:65532"
+          docker run --rm -v "$PWD/deployments/examples:/e:ro" radio-gateway:ci --check-config /e/gateway.example.toml
+          docker run --rm -v "$PWD/deployments/examples:/e:ro" radio-agent:ci --check-config /e/agent.example.toml
+
+  fuzz-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-fuzz --locked
+      - name: Run each fuzz target for 60 s
+        working-directory: fuzz
+        run: |
+          for t in $(cargo +nightly fuzz list); do
+            mkdir -p "corpus/$t"
+            if [ -d "seeds/$t" ]; then cp "seeds/$t/"* "corpus/$t/"; fi
+            cargo +nightly fuzz run "$t" "corpus/$t" -- -max_total_time=60 -rss_limit_mb=1024
+          done

@@ -1,0 +1,23 @@
+[package]
+name = "sds-simulator"
+description = "Software SDS200 network simulator for development and automated testing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "sds-simulator"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { workspace = true, features = ["net", "time", "sync", "rt", "rt-multi-thread", "macros", "signal"] }
+tokio-util = { workspace = true }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+axum = { workspace = true, features = ["multipart"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true

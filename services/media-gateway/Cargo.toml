@@ -1,0 +1,22 @@
+[package]
+name = "media-gateway"
+description = "Live scanner audio fan-out over WebRTC (WHEP) with Opus, using str0m and AWS-LC"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+platform-common.workspace = true
+str0m = { version = "=0.25.0", default-features = false, features = ["aws-lc-rs"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "time", "sync", "macros", "rt"] }
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time"] }
+
+[lints]
+workspace = true

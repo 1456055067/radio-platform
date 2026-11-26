@@ -1,0 +1,8 @@
+apiVersion: v2
+name: radio-platform
+description: API gateway and web console for SDS200 network management (site agents run at the sites, not in this chart)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+keywords: [sds200, scanner, radio]

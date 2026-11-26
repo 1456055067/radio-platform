@@ -1,0 +1,31 @@
+[package]
+name = "platform-storage"
+description = "Tenant-scoped persistence: PostgreSQL and in-memory stores"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
+platform-common.workspace = true
+async-trait.workspace = true
+aws-lc-rs.workspace = true
+base64.workspace = true
+ipnet.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+utoipa.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+futures-util.workspace = true
+
+[lints]
+workspace = true

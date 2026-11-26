@@ -1,0 +1,23 @@
+[package]
+name = "uniden-sds"
+description = "Asynchronous, strongly typed SDK for Uniden SDS200 scanners over the network"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+uniden-protocol.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "time", "sync", "rt", "macros"] }
+tokio-util = { workspace = true }
+tracing.workspace = true
+
+[dev-dependencies]
+sds-simulator.workspace = true
+tokio = { workspace = true, features = ["net", "time", "sync", "rt", "rt-multi-thread", "macros", "test-util"] }
+proptest.workspace = true
+
+[lints]
+workspace = true

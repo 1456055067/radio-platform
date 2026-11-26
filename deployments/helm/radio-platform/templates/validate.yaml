@@ -1,0 +1,9 @@
+{{- if and .Values.media.enabled (gt (int .Values.replicaCount) 1) }}
+{{- fail "media.enabled requires replicaCount: 1 (each replica needs its own browser-reachable UDP address)" }}
+{{- end }}
+{{- if and .Values.media.enabled (not .Values.media.publicAddress) }}
+{{- fail "media.publicAddress is required when media.enabled" }}
+{{- end }}
+{{- if and (regexMatch "(?m)^\\s*\\[transcription\\]" .Values.config) (not (regexMatch "(?m)^\\s*\\[recording\\]" .Values.config)) }}
+{{- fail "[transcription] in config requires [recording]" }}
+{{- end }}

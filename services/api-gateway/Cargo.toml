@@ -1,0 +1,52 @@
+[package]
+name = "api-gateway"
+description = "Radio platform REST/WebSocket API and mTLS agent hub"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "api-gateway"
+path = "src/main.rs"
+
+[dependencies]
+platform-auth.workspace = true
+platform-common.workspace = true
+platform-storage.workspace = true
+scanner-controller.workspace = true
+media-gateway.workspace = true
+scanner-recorder.workspace = true
+scanner-transcription.workspace = true
+axum.workspace = true
+governor.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+ipnet.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+tokio-rustls.workspace = true
+tokio-util.workspace = true
+toml.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+utoipa.workspace = true
+uuid.workspace = true
+x509-parser.workspace = true
+
+[dev-dependencies]
+platform-auth = { workspace = true, features = ["testing"] }
+http-body-util = "0.1"
+rcgen.workspace = true
+scanner-audio.workspace = true
+sds-simulator.workspace = true
+
+[lints]
+workspace = true

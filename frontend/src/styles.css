@@ -1,0 +1,37 @@
+/* Signal bars */
+.rp-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; vertical-align: middle; }
+.rp-bar { width: 4px; background: currentColor; opacity: 0.25; border-radius: 1px; }
+.rp-bar.on { opacity: 1; }
+
+/* Virtual scanner display */
+.rp-lcd {
+  --lcd-bg: #0f1b12; --lcd-fg: #b8f5c4; --lcd-dim: #6f9d79; --lcd-rx: #ffd166;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--lcd-bg); color: var(--lcd-fg); border-radius: 10px; padding: 14px 16px;
+  box-shadow: inset 0 0 0 2px #22392a, inset 0 2px 12px rgba(0,0,0,.6);
+  display: flex; flex-direction: column; gap: 6px; min-height: 240px;
+}
+.rp-lcd.rx { box-shadow: inset 0 0 0 2px var(--lcd-rx), inset 0 2px 12px rgba(0,0,0,.6); }
+.rp-lcd.stale, .rp-lcd.off { opacity: .6; }
+.rp-lcd-top, .rp-lcd-foot { display: flex; justify-content: space-between; align-items: center; color: var(--lcd-dim); font-size: 12px; gap: 8px; flex-wrap: wrap; }
+.rp-lcd-flags { display: inline-flex; gap: 6px; align-items: center; color: var(--lcd-fg); }
+.rp-lcd-flag { border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; font-size: 11px; }
+.rp-lcd.rx .rp-lcd-flag:first-child { color: var(--lcd-rx); }
+.rp-lcd-line { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+.rp-lcd-label { color: var(--lcd-dim); font-size: 11px; width: 34px; flex: none; }
+.rp-lcd-value { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-lcd-line.big .rp-lcd-value { font-size: 24px; font-weight: 600; }
+.rp-lcd-row { display: flex; flex-wrap: wrap; column-gap: 24px; row-gap: 4px; }
+.rp-lcd-info { color: var(--lcd-dim); font-size: 13px; }
+.rp-lcd-popup { border: 1px dashed var(--lcd-fg); padding: 4px 8px; border-radius: 4px; }
+
+/* Front-panel keys */
+.rp-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.rp-keypad { display: grid; grid-template-columns: repeat(3, minmax(48px, 1fr)); gap: 6px; max-width: 220px; }
+
+/* Site map (relative positions only; no external tiles) */
+.rp-map { width: 100%; height: auto; max-height: 260px; }
+.rp-map-dot { fill: #0972d3; }
+.rp-map-dot.bad { fill: #d91515; }
+.rp-map-label { font-size: 11px; fill: currentColor; }
+.rp-map-frame { fill: none; stroke: currentColor; stroke-opacity: .2; }

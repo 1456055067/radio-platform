@@ -1,0 +1,10 @@
+/target
+/fuzz/target
+/fuzz/corpus/*/
+/fuzz/artifacts
+*.swp
+.env
+/frontend/node_modules
+/frontend/dist
+*.tsbuildinfo
+.DS_Store

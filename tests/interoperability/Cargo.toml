@@ -1,0 +1,20 @@
+[package]
+name = "sds-interoperability"
+description = "Hardware interoperability tests against a real SDS200 (opt-in via environment variables)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+uniden-sds.workspace = true
+uniden-protocol.workspace = true
+scanner-audio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync"] }
+tokio-util.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,23 @@
+[package]
+name = "scanner-audio"
+description = "SDS200 audio: RTSP client, RTP reception, jitter buffer, G.711 decode, Opus encode, Ogg Opus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+opus = { workspace = true }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "time", "sync", "io-util", "macros", "rt"] }
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+sds-simulator.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time", "io-util"] }
+
+[lints]
+workspace = true

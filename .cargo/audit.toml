@@ -1,0 +1,14 @@
+# cargo-audit configuration.
+#
+# Every ignore must name the advisory, explain why it does not affect any
+# built artifact, and have a CI guard that fails if that stops being true.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2026-0459 (libsqlite3-sys / C SQLite). Present in Cargo.lock only
+    # because sqlx's macro crate declares its optional SQLite driver; the
+    # platform enables only the PostgreSQL driver, and
+    # `cargo tree -i libsqlite3-sys --workspace --target all -e all` is empty.
+    # Guarded by the "lockfile-only advisories are not built" CI step.
+    "RUSTSEC-2026-0459",
+]

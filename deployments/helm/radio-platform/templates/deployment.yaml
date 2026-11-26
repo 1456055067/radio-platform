@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rp.fullname" . }}
+  labels: {{- include "rp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "rp.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "rp.labels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+      annotations:
+        checksum/config: {{ include "rp.config" . | sha256sum }}
+        {{- with .Values.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      serviceAccountName: {{ include "rp.fullname" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: { type: RuntimeDefault }
+      # Agents reconnect and in-flight commands are not retried; give
+      # connections time to drain.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: gateway
+          image: {{ include "rp.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["/etc/radio/config/gateway.toml"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.secrets.database | quote }}, key: DATABASE_URL }
+            - name: RUST_LOG
+              value: info
+          {{- with .Values.secrets.extraEnv }}
+          envFrom:
+            - secretRef: { name: {{ . | quote }} }
+          {{- end }}
+          ports:
+            - { name: https, containerPort: 8443, protocol: TCP }
+            - { name: agents, containerPort: 9443, protocol: TCP }
+            {{- if .Values.metrics.enabled }}
+            - { name: metrics, containerPort: {{ .Values.metrics.port }}, protocol: TCP }
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - { name: media, containerPort: {{ .Values.media.udpPort }}, protocol: UDP }
+            {{- end }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: https, scheme: HTTPS }
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /readyz, port: https, scheme: HTTPS }
+            periodSeconds: 5
+            failureThreshold: 2
+          startupProbe:
+            httpGet: { path: /healthz, port: https, scheme: HTTPS }
+            periodSeconds: 2
+            failureThreshold: 60
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/radio/config, readOnly: true }
+            - { name: tls, mountPath: /etc/radio/tls, readOnly: true }
+            - { name: agent-ca, mountPath: /etc/radio/agent-ca, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: config
+          configMap: { name: {{ include "rp.fullname" . }} }
+        - name: tls
+          secret: { secretName: {{ .Values.secrets.tls | quote }} }
+        - name: agent-ca
+          secret: { secretName: {{ .Values.secrets.agentCa | quote }} }
+        - name: tmp
+          emptyDir: { sizeLimit: 64Mi }
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- toYaml . | nindent 8 }}
+      {{- end }}

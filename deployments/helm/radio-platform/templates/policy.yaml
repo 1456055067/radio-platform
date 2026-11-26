@@ -1,0 +1,58 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "rp.fullname" . }}
+  labels: {{- include "rp.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels: {{- include "rp.selector" . | nindent 6 }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "rp.fullname" . }}
+  labels: {{- include "rp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "rp.selector" . | nindent 6 }}
+  policyTypes: [Ingress{{ if .Values.networkPolicy.egress.enabled }}, Egress{{ end }}]
+  ingress:
+    # Public API and agents: from anywhere the Services expose them.
+    - ports:
+        - { port: 8443, protocol: TCP }
+        - { port: 9443, protocol: TCP }
+        {{- if .Values.media.enabled }}
+        - { port: {{ .Values.media.udpPort }}, protocol: UDP }
+        {{- end }}
+    {{- if .Values.metrics.enabled }}
+    # Metrics: only from the monitoring namespace.
+    - from:
+        - namespaceSelector: {{- toYaml .Values.networkPolicy.metricsNamespaceSelector | nindent 12 }}
+      ports:
+        - { port: {{ .Values.metrics.port }}, protocol: TCP }
+    {{- end }}
+  {{- if .Values.networkPolicy.egress.enabled }}
+  egress: {{- toYaml .Values.networkPolicy.egress.rules | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "rp.fullname" . }}
+  labels: {{- include "rp.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.labels }}{{ toYaml . | nindent 4 }}{{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: metrics
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+{{- end }}

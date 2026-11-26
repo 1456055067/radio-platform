@@ -1,0 +1,18 @@
+[package]
+name = "uniden-protocol"
+description = "Sans-I/O encoder and decoder for the Uniden SDS-series remote command protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+quick-xml.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

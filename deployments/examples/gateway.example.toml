@@ -1,0 +1,106 @@
+# api-gateway example configuration. Paths are relative to the working directory.
+
+[http]
+bind = "0.0.0.0:8443"
+tls = { cert = "/etc/radio/gateway.pem", key = "/etc/radio/gateway-key.pem" }
+# insecure_plaintext = true   # only behind a TLS 1.3-terminating ingress
+
+# Optional: serve the web console from this listener.
+[http.ui]
+dir = "/srv/radio-platform/ui"           # frontend/dist
+[http.ui.auth]
+mode = "oidc"                            # public client, authorization code + PKCE
+authority = "https://idp.example.org/realms/radio"
+client_id = "radio-console"
+scope = "openid profile"
+
+[agents]
+bind = "0.0.0.0:9443"
+cert = "/etc/radio/gateway.pem"
+key = "/etc/radio/gateway-key.pem"
+client_ca = "/etc/radio/agent-ca.pem"   # CA that issues agent client certificates
+client_crl = "/etc/radio/agent-ca.crl.pem" # revoked agents are refused; re-read every crl_refresh_secs
+crl_refresh_secs = 300                    # an expired CRL refuses ALL agents (fail closed)
+
+[database]
+backend = "postgres"                     # or "memory" for development
+# url is read from DATABASE_URL when set
+max_connections = 10
+
+[auth]
+issuer = "https://idp.example.org/realms/radio"
+audience = "radio-platform"
+tenant_claim = "tenant_id"
+sites_claim = "sites"                    # array of site UUIDs, or ["*"]
+roles_claim = "roles"
+max_session_secs = 28800                 # 8 h absolute session limit
+# jwks_file = "/etc/radio/jwks.json"     # air-gapped: skip discovery
+
+[auth.role_permissions]
+radio-admin = ["scanner_view", "scanner_control", "scanner_admin", "scanner_manage", "site_manage", "event_view", "audio_listen", "recording_manage", "transcription_manage", "export", "audit_view"]
+radio-operator = ["scanner_view", "scanner_control", "event_view", "audio_listen"]
+radio-viewer = ["scanner_view", "event_view"]
+
+[limits]
+requests_per_minute = 600               # per authenticated subject, per replica
+requests_per_minute_per_ip = 1200       # per client IP before authentication, per replica
+trusted_proxies = []                    # e.g. ["10.0.0.0/24"]: trust X-Forwarded-For only from these
+command_timeout_secs = 15
+max_body_bytes = 65536
+scanner_ports = [50536]
+audio_ports = [554]                     # scanner RTSP ports that may be configured
+lease_default_secs = 300
+lease_max_secs = 3600
+
+# Several gateway replicas behind a load balancer (ADR 0008). Requires the
+# postgres backend; all replicas share the database.
+[cluster]
+enabled = false
+
+# Live audio over WebRTC (absent = disabled). Only monitor communications
+# you are authorized to receive.
+# [media]
+# udp_bind = "0.0.0.0:50000"
+# public = "203.0.113.10:50000"         # what browsers can reach
+# max_sessions = 256
+# max_sessions_per_subject = 4
+
+# Transmission recording (absent = disabled; also enabled per scanner).
+# Credentials come from AWS_* environment variables, never this file.
+# [recording]
+# storage = { backend = "s3", bucket = "radio-recordings", region = "us-east-1" }
+# # storage = { backend = "local", dir = "/var/lib/radio/recordings" }
+# pre_buffer_ms = 1000
+# post_roll_ms = 500
+# max_duration_secs = 300
+
+# Transcription (Phase 5). OFF unless this section is present, and then only
+# for scanners a `transcription_manage` user enables. Needs [recording].
+# Every transcribed recording is sent to `endpoint`; prefer a service on this
+# host or network. Transcripts are machine-generated and can be wrong.
+# [transcription]
+# endpoint = "http://127.0.0.1:8080"     # whisper.cpp `whisper-server`, or https://…
+# api = "whisper_cpp"                    # or "openai" (/v1/audio/transcriptions)
+# model = "whisper-1"                    # sent with "openai" requests
+# language = "en"                        # omit to let the service detect it
+# prompt = "Engine 5, Ladder 2, Medic 7" # vocabulary hint
+# api_key_env = "TRANSCRIPTION_API_KEY"  # never put the key in this file
+# ca_file = "/etc/radio/asr-ca.pem"
+# min_duration_ms = 600
+# concurrency = 2
+# max_attempts = 4
+# timeout_secs = 120
+
+# Retention (Phase 5). Limits are in days; an unset limit keeps data forever.
+# Held transmissions are kept; the audit log is never swept.
+# [retention]
+# recordings_days = 90
+# transcripts_days = 365
+# transmissions_days = 730
+# events_days = 90
+# sweep_interval_secs = 3600
+
+# Prometheus metrics (absent = disabled). No authentication: bind to
+# loopback or an internal interface only.
+# [metrics]
+# bind = "127.0.0.1:9464"

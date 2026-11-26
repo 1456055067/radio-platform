@@ -1,0 +1,73 @@
+[package]
+name = "radio-platform-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+uniden-protocol = { path = "../crates/uniden-protocol" }
+scanner-audio = { path = "../crates/scanner-audio" }
+platform-common = { path = "../crates/platform-common" }
+scanner-transcription = { path = "../crates/scanner-transcription" }
+
+[[bin]]
+name = "frame_assembler"
+path = "fuzz_targets/frame_assembler.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "xml_scanner_info"
+path = "fuzz_targets/xml_scanner_info.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "reply_decoder"
+path = "fuzz_targets/reply_decoder.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "value_parsers"
+path = "fuzz_targets/value_parsers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rtsp_response"
+path = "fuzz_targets/rtsp_response.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rtp_jitter"
+path = "fuzz_targets/rtp_jitter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "media_frame"
+path = "fuzz_targets/media_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ogg_opus"
+path = "fuzz_targets/ogg_opus.rs"
+test = false
+doc = false
+bench = false
+

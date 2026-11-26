@@ -1,0 +1,95 @@
+name: images
+
+# Multi-arch container images (gateway with the console, and the agent),
+# built natively per architecture, pushed by digest, merged into one
+# manifest list, with SBOM and provenance attestations and a keyless
+# cosign signature.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [gateway, agent]
+        platform:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployments/container/Dockerfile
+          target: ${{ matrix.target }}
+          platforms: linux/${{ matrix.platform.arch }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          provenance: mode=max
+          sbom: true
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ github.repository_owner }}/radio-${{ matrix.target }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.platform.arch }}
+      - run: |
+          mkdir -p digests
+          echo "${{ steps.build.outputs.digest }}" > "digests/${{ matrix.target }}-${{ matrix.platform.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.target }}-${{ matrix.platform.arch }}
+          path: digests/*
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        target: [gateway, agent]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write   # keyless cosign signing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-${{ matrix.target }}-*
+          merge-multiple: true
+          path: digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@v3
+      - name: Create the manifest list and sign it
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/radio-${{ matrix.target }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+        run: |
+          refs=()
+          for f in digests/*; do refs+=("$IMAGE@$(cat "$f")"); done
+          docker buildx imagetools create -t "$IMAGE:$TAG" "${refs[@]}"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$TAG" --format '{{json .Manifest}}' | jq -r .digest)
+          cosign sign --yes "$IMAGE@$digest"
+          echo "Published $IMAGE:$TAG ($digest)" >> "$GITHUB_STEP_SUMMARY"

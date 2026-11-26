@@ -1,0 +1,10 @@
+radio-platform {{ .Chart.AppVersion }} installed as {{ include "rp.fullname" . }} ({{ .Values.replicaCount }} replica(s){{ if gt (int .Values.replicaCount) 1 }}, cluster mode{{ end }}).
+
+- Console and API: Service {{ include "rp.fullname" . }} port {{ .Values.service.port }} (HTTPS, terminated by the gateway).
+- Agents: Service {{ include "rp.fullname" . }}-agents port {{ .Values.agentService.port }} (mutual TLS; keep it L4).
+{{- if .Values.metrics.enabled }}
+- Metrics: Service {{ include "rp.fullname" . }}-metrics port {{ .Values.metrics.port }} /metrics.
+{{- end }}
+
+Audio, recording, transcription and retention are off unless configured.
+Verify the audit chain after installation: GET /api/v1/audit/verify.

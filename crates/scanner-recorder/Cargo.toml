@@ -1,0 +1,25 @@
+[package]
+name = "scanner-recorder"
+description = "Transmission segmentation and Ogg Opus recording to S3-compatible or local object storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+platform-common.workspace = true
+scanner-audio.workspace = true
+object_store = { version = "=0.14.2", default-features = false, features = ["aws", "fs"] }
+serde.workspace = true
+thiserror.workspace = true
+time = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

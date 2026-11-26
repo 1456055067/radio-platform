@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["image", "replicaCount", "secrets", "config"],
+  "properties": {
+    "replicaCount": { "type": "integer", "minimum": 1 },
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "digest": { "type": "string", "pattern": "^(sha256:[a-f0-9]{64})?$" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "required": ["tls", "agentCa", "database"],
+      "properties": {
+        "tls": { "type": "string", "minLength": 1 },
+        "agentCa": { "type": "string", "minLength": 1 },
+        "agentCrl": { "type": "boolean" },
+        "database": { "type": "string", "minLength": 1 },
+        "extraEnv": { "type": "string" }
+      }
+    },
+    "service": { "type": "object" },
+    "agentService": { "type": "object" },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "media": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "udpPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "publicAddress": { "type": "string" }
+      }
+    },
+    "config": {
+      "type": "string",
+      "not": { "pattern": "(?m)^\\s*\\[(http|agents|database|cluster|metrics|media)[\\].]" }
+    },
+    "ui": { "type": "object" },
+    "database": {
+      "type": "object",
+      "properties": { "maxConnections": { "type": "integer", "minimum": 1 } }
+    }
+  }
+}

@@ -1,0 +1,128 @@
+# Default values for radio-platform. Audio, recording, transcription and
+# retention are OFF unless configured here (and, for the first three, per
+# scanner). Only monitor or record communications you are authorized to
+# receive.
+
+image:
+  repository: ghcr.io/OWNER/radio-gateway   # set to your registry
+  tag: ""                                    # defaults to the chart appVersion
+  digest: ""                                 # prefer pinning: sha256:…
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# More than one replica turns on cluster mode (ADR 0008; PostgreSQL bus).
+replicaCount: 2
+
+# Secrets you create beforehand (never put keys or passwords in values).
+secrets:
+  # kubernetes.io/tls secret for the public HTTPS listener and the agent
+  # listener's server certificate.
+  tls: radio-gateway-tls
+  # Secret with key `ca.crt`: the CA that issues agent client certificates,
+  # and optionally `ca.crl` (PEM CRL). Without a CRL, revoked agents are not
+  # detected.
+  agentCa: radio-agent-ca
+  agentCrl: true
+  # Secret with key DATABASE_URL (postgres://…). Use TLS to the database
+  # (sslmode=verify-full) outside the cluster network.
+  database: radio-database
+  # Optional: Secret whose keys become environment variables (AWS_* for
+  # S3 recording, the transcription API key, …).
+  extraEnv: ""
+
+service:
+  # Public HTTPS (API, console, live stream). The gateway terminates TLS 1.3
+  # itself; use a TLS-passthrough load balancer or ingress.
+  type: ClusterIP
+  port: 443
+  annotations: {}
+agentService:
+  # Agents use mutual TLS: the connection must reach the gateway unbroken
+  # (L4 load balancer, never a TLS-terminating proxy).
+  type: LoadBalancer
+  port: 9443
+  annotations: {}
+  loadBalancerSourceRanges: []   # restrict to your sites' egress addresses
+
+# Prometheus scraping (plain HTTP inside the cluster; the NetworkPolicy
+# limits who may connect).
+metrics:
+  enabled: true
+  port: 9464
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+
+# Live audio over WebRTC needs every replica to have its own UDP address
+# reachable by browsers. The chart supports it with replicaCount: 1 only.
+media:
+  enabled: false
+  udpPort: 50000
+  publicAddress: ""    # host:port browsers can reach (required)
+
+# Extra gateway.toml content, as TOML (see
+# deployments/examples/gateway.example.toml). TOML, not YAML, so numbers
+# keep their types. The chart writes [http], [agents], [database],
+# [cluster], [metrics] and [media]; defining them here is an error.
+config: |
+  [auth]
+  issuer = "https://idp.example.org/realms/radio"
+  audience = "radio-platform"
+  tenant_claim = "tenant_id"
+  sites_claim = "sites"
+  roles_claim = "roles"
+  max_session_secs = 28800
+
+  [auth.role_permissions]
+  radio-admin = ["scanner_view", "scanner_control", "scanner_admin", "scanner_manage", "site_manage", "event_view", "audio_listen", "recording_manage", "transcription_manage", "export", "audit_view"]
+  radio-operator = ["scanner_view", "scanner_control", "event_view", "audio_listen"]
+  radio-viewer = ["scanner_view", "event_view"]
+
+  [limits]
+  trusted_proxies = []
+
+  # [recording]
+  # storage = { backend = "s3", bucket = "radio-recordings", region = "us-east-1" }
+  # [transcription]
+  # endpoint = "https://asr.internal.example.org"
+  # api_key_env = "TRANSCRIPTION_API_KEY"
+  # [retention]
+  # recordings_days = 90
+  # transmissions_days = 730
+
+# Web console (served by the gateway). OIDC public client with PKCE.
+ui:
+  enabled: true
+  authority: "https://idp.example.org/realms/radio"
+  clientId: radio-console
+  scope: "openid profile"
+
+database:
+  maxConnections: 10
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 512Mi }
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  # Namespaces allowed to scrape metrics (matched by label).
+  metricsNamespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: monitoring
+  # Restrict egress too. When enabled, list everything the gateway must
+  # reach: DNS, PostgreSQL, the IdP, S3, the transcription service.
+  egress:
+    enabled: false
+    rules: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+podAnnotations: {}
