@@ -63,10 +63,27 @@ cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo audit
+cargo deny check            # licenses, sources, bans, advisories (deny.toml)
 (cd fuzz && cargo +nightly fuzz build)
 (cd frontend && npm ci && npm audit && npm run typecheck && npm test && npm run build)
 (cd frontend && npm run e2e)   # browser tests; needs `npx playwright install chromium` once
 ```
+
+## Secure engineering workflow
+
+Non-trivial changes go through the multi-agent workflow in
+`.claude/skills/radio-workflow/` (`/radio-workflow full|review|plan …`):
+plan → build → QA → parallel security, NIST 800-53, protocol and
+performance review → fix loop (max 3 rounds) → compliance docs → release
+gate. The agents live in `.claude/agents/`. Run artifacts go to
+`target/agent-workflow/` and are never committed.
+
+- `docs/nist-800-53-controls.md` is evidence. A control is "Implemented
+  (tested)" only with a cited file and an existing test. Annotate code that
+  implements a control with `// NIST 800-53 Rev5: <ID> (<reason>)`, and
+  only where it really does; mark known gaps with `// POAM: <description>`.
+- A gate whose environment is missing (PostgreSQL, hardware, helm, Podman)
+  is NOT RUN, never PASS.
 
 Frontend rules:
 - Pin exact dependency versions, chosen from releases at least two weeks

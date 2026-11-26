@@ -1,5 +1,8 @@
 # Security Architecture
 
+Control-by-control evidence and open gaps (POA&M) are in
+[nist-800-53-controls.md](nist-800-53-controls.md).
+
 ## Trust boundary
 
 ```mermaid

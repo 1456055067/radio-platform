@@ -1,0 +1,64 @@
+# cargo-deny policy: advisories, licenses, bans and sources.
+#
+# NIST 800-53 Rev5: SR-3 (supply chain controls), SR-4 (provenance),
+# CM-10 (software usage restrictions), RA-5 (vulnerability monitoring).
+#
+# Run: `cargo deny check`. The license allow-list is the set of permissive
+# licenses the dependency tree actually uses (as of 0.1.0). A crate under any
+# other license fails the check until it is reviewed here.
+
+[graph]
+all-features = true
+
+[advisories]
+# Unmaintained crates fail only when a workspace crate depends on them
+# directly. Transitive ones (chrono and humantime, via object_store) are
+# reported by cargo-audit as warnings and tracked there.
+unmaintained = "workspace"
+# No ignores: cargo-deny checks the resolved build graph, so lockfile-only
+# entries such as libsqlite3-sys (RUSTSEC-2026-0459, ignored in
+# .cargo/audit.toml) never reach it. Any ignore added here must also be
+# justified in .cargo/audit.toml.
+ignore = []
+
+[licenses]
+confidence-threshold = 0.9
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    # Mozilla's CA bundle data (webpki-root-certs).
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[licenses.private]
+# Workspace crates are `publish = false` and inherit Apache-2.0.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+# Workspace crates use versionless `path` dependencies; registry
+# dependencies all carry versions.
+wildcards = "allow"
+# OpenSSL stays out of the tree: TLS is rustls with AWS-LC only.
+deny = [
+    { crate = "openssl", reason = "TLS is rustls + AWS-LC only" },
+    { crate = "openssl-sys", reason = "TLS is rustls + AWS-LC only" },
+    { crate = "native-tls", reason = "TLS is rustls + AWS-LC only" },
+]
+
+[sources]
+# Only crates.io; no git or alternative registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

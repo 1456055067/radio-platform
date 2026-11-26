@@ -80,6 +80,9 @@ hardware.
 The scanner protocol is unauthenticated and unencrypted. **Never expose UDP
 50536 or TCP 554 to the Internet.** See [SECURITY.md](SECURITY.md) and
 [docs/security-architecture.md](docs/security-architecture.md).
+[docs/nist-800-53-controls.md](docs/nist-800-53-controls.md) maps the
+platform to NIST SP 800-53 Rev 5 controls, with evidence and open gaps;
+it is not a compliance claim.
 
 ## Legal
 

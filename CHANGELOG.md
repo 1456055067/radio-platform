@@ -5,6 +5,14 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 ## [Unreleased]
 
 ### Added
+- Secure engineering workflow (`.claude/skills/radio-workflow`, nine agents
+  in `.claude/agents`): plan, build, QA, parallel security / NIST 800-53 /
+  protocol / performance review, fix loop, compliance docs, release gate.
+- `docs/nist-800-53-controls.md`: NIST SP 800-53 Rev 5 control matrix (51
+  controls) with cited implementations, tests and a POA&M list.
+- `cargo deny` policy (`deny.toml`: licenses, crates.io only, OpenSSL
+  banned) with a CI job, and weekly Dependabot updates with a 14-day
+  cooldown.
 - Playwright browser end-to-end tests (`frontend/e2e`, 13 tests) against
   `radio-devstack`, and an `e2e` CI job that uploads traces on failure.
 - Console code-splitting: each page is loaded when first visited, React

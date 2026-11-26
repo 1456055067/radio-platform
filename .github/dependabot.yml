@@ -1,0 +1,47 @@
+# Weekly dependency update PRs. NIST 800-53 Rev5: SI-2 (flaw remediation),
+# RA-5 (vulnerability monitoring), SR-3 (supply chain controls).
+#
+# Every update still goes through CI (cargo-deny, cargo audit, npm audit,
+# tests). npm updates must respect the project rule of exact versions at
+# least two weeks old, so the cooldown below delays new releases by 14 days.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    versioning-strategy: increase
+    groups:
+      npm-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+
+  - package-ecosystem: docker
+    directory: /deployments/container
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+
+  - package-ecosystem: cargo
+    directory: /fuzz
+    schedule:
+      interval: monthly

@@ -121,6 +121,15 @@ jobs:
             fi
           done
 
+  deny:
+    name: supply chain (cargo-deny)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources
+
   helm:
     runs-on: ubuntu-24.04
     steps:
