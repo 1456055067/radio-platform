@@ -4,6 +4,13 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
+PostgreSQL transport security release. **Breaking:** an off-loopback
+database URL without `sslmode=verify-full` now stops the gateway (see
+below and ADR 0012). Still tested against `sds-simulator` only; **not
+verified on SDS200 hardware**.
+
 ### Changed — BREAKING
 - **Off-loopback PostgreSQL now requires `sslmode=verify-full`.** The
   gateway refuses to start (and `--check-config` exits 2) when the database

@@ -722,7 +722,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "platform-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ipnet",
  "serde",
@@ -1065,7 +1065,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-audio"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "opus",
  "thiserror",
@@ -1076,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-transcription"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "opus",
  "reqwest",
@@ -1478,7 +1478,7 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "uniden-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "quick-xml",
  "thiserror",
