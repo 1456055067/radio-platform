@@ -4,7 +4,7 @@
 # receive.
 
 image:
-  repository: ghcr.io/OWNER/radio-gateway   # set to your registry
+  repository: ghcr.io/1456055067/radio-gateway   # or your own registry
   tag: ""                                    # defaults to the chart appVersion
   digest: ""                                 # prefer pinning: sha256:…
   pullPolicy: IfNotPresent

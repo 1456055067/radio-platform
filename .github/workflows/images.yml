@@ -85,8 +85,13 @@ jobs:
       - name: Create the manifest list and sign it
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/radio-${{ matrix.target }}
-          TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
         run: |
+          # Release tag v1.2.3 publishes image tag 1.2.3 (the chart's
+          # appVersion); other runs publish the commit SHA.
+          if [ "$REF_TYPE" = tag ]; then TAG="${REF_NAME#v}"; else TAG="$SHA"; fi
           refs=()
           for f in digests/*; do refs+=("$IMAGE@$(cat "$f")"); done
           docker buildx imagetools create -t "$IMAGE:$TAG" "${refs[@]}"

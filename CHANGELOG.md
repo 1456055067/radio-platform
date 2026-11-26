@@ -4,6 +4,11 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-26
+
+First release. Tested against `sds-simulator` only; **not verified on
+SDS200 hardware** (see `docs/hardware-signoff.md`).
+
 ### Added — Phase 6 (hardening)
 - Authorization matrix test over every documented route.
 - Tamper-evident audit log (ADR 0011, migration 0005): per-tenant SHA-256
