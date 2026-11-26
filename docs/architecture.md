@@ -45,7 +45,7 @@ marked:
 flowchart TD
     UI[Web UI] -->|HTTPS / WSS| API[API Gateway]
     UI <-->|WebRTC| MEDIA[Media Gateway]
-    API --> DB[(PostgreSQL)]
+    API -->|TLS verify-full off loopback| DB[(PostgreSQL)]
     API <-->|mTLS 1.3| A1[Scanner Agent — Site A]
     A1 --> MEDIA
     MEDIA --> S3[(Object Storage)]

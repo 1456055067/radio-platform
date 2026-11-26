@@ -4,6 +4,11 @@ The schema lives in `migrations/` and is applied automatically at gateway
 start-up. All tables are tenant-scoped, and metadata a scanner does not
 report is nullable.
 
+The gateway connects only after its database transport policy accepts the
+URL: off loopback it requires `sslmode=verify-full` (ADR 0012,
+`docs/deployment.md`, "Database TLS"). The cluster bus `LISTEN` connection
+comes from the same pool. No schema change comes with this.
+
 ```mermaid
 erDiagram
     tenants ||--o{ sites : has

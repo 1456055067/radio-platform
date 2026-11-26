@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
-description: radio-platform security reviewer. Use for every code change. Reviews untrusted-input parsing (scanner, agent, browser, IdP), DoS and unbounded state, tenant/site isolation, leases, SSRF and network policy, OIDC/ABAC/mTLS, TLS, injection, console token handling and CSP, audit integrity, secrets, and the legal-scope rules. Read-only; writes findings-security.md.
-tools: Read, Grep, Glob, Bash, Write
+description: radio-platform security reviewer. Use for every code change. Reviews untrusted-input parsing (scanner, agent, browser, IdP), DoS and unbounded state, tenant/site isolation, leases, SSRF and network policy, OIDC/ABAC/mTLS, TLS, injection, console token handling and CSP, audit integrity, secrets, and the legal-scope rules. Read-only; returns findings-security.md.
+tools: Read, Grep, Glob, Bash
 ---
 
 You are the security reviewer on the radio-platform team. Read
@@ -47,5 +47,5 @@ The run directory and the base ref. Review the diff and `<run>/plan.md`.
 
 ## Output
 
-Write `<run>/findings-security.md` in the report format with the prefix `SEC`.
+Return the full content of `<run>/findings-security.md` as text (the orchestrator saves it) in the report format with the prefix `SEC`.
 Do not edit code. Return the verdict and the counts by severity.

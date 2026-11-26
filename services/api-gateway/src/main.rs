@@ -3,10 +3,10 @@
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use api_gateway::config::{DatabaseConfig, GatewayConfig};
+use api_gateway::config::{DatabaseConfig, DbTransport, GatewayConfig};
 use api_gateway::{AppState, agent_app, serve, tls, ui, with_ui};
 use platform_auth::{JwkSet, OidcVerifier};
-use platform_storage::{MemoryStore, PgStore, Store};
+use platform_storage::{CheckedTarget, MemoryStore, PgStore, Store, TransportVerdict};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -30,19 +30,47 @@ async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
 }
 
+/// Logs the accepted database transport. Never logs the URL.
+fn log_database_transport(checked: &CheckedTarget) {
+    let target = checked.target();
+    let (host, port, sslmode) = (target.host(), target.port(), target.ssl_mode());
+    match checked.verdict() {
+        TransportVerdict::InsecureAllowed => warn!(
+            host,
+            port,
+            sslmode,
+            "database connection is not verified TLS (insecure_transport = true); \
+             credentials, audit records and transcripts may be read or altered on the network"
+        ),
+        TransportVerdict::Verified => {
+            info!(host, port, sslmode, "database connection uses verified TLS");
+        }
+        TransportVerdict::Local => info!(host, port, sslmode, "database is on this host"),
+    }
+}
+
 async fn run(cfg: GatewayConfig) -> Result<(), String> {
     cfg.validate()?;
     let mut bus: Option<platform_storage::PgBus> = None;
     let store: Arc<dyn Store> = match &cfg.database {
         DatabaseConfig::Postgres {
-            url,
-            max_connections,
+            max_connections, ..
         } => {
-            let url = std::env::var("DATABASE_URL")
-                .ok()
-                .or_else(|| url.clone())
+            let env = |k: &str| std::env::var(k).ok();
+            let checked = match cfg.check_database_transport(&env)? {
+                DbTransport::Checked(checked) => {
+                    log_database_transport(&checked);
+                    checked
+                }
+                DbTransport::UrlNotSet | DbTransport::NotPostgres => {
+                    return Err("database url not configured (set DATABASE_URL)".into());
+                }
+            };
+            let url = cfg
+                .database
+                .effective_url(&env)
                 .ok_or("database url not configured (set DATABASE_URL)")?;
-            let pg = PgStore::connect(&url, *max_connections)
+            let pg = PgStore::connect_target(&url, &checked, *max_connections)
                 .await
                 .map_err(|e| e.to_string())?;
             pg.migrate().await.map_err(|e| e.to_string())?;
@@ -292,6 +320,37 @@ async fn run(cfg: GatewayConfig) -> Result<(), String> {
     Ok(())
 }
 
+/// `--check-config`: static checks plus the database transport policy for
+/// the URL in this environment. Exit 2 on any refusal.
+fn check_config(path: &str, cfg: &GatewayConfig) -> ExitCode {
+    if let Err(e) = cfg.validate() {
+        eprintln!("error: {path}: {e}");
+        return ExitCode::from(2);
+    }
+    match cfg.check_database_transport(&|k| std::env::var(k).ok()) {
+        Err(e) => {
+            eprintln!("error: {path}: {e}");
+            return ExitCode::from(2);
+        }
+        Ok(DbTransport::UrlNotSet) => println!(
+            "{path}: note: database URL not set here (DATABASE_URL); the transport policy is \
+             checked at start-up"
+        ),
+        Ok(DbTransport::Checked(checked))
+            if checked.verdict() == TransportVerdict::InsecureAllowed =>
+        {
+            eprintln!(
+                "warning: {path}: database {checked} is not verified TLS; allowed only because \
+                 [database] insecure_transport = true"
+            );
+        }
+        Ok(DbTransport::Checked(checked)) => println!("{path}: database {checked}: OK"),
+        Ok(DbTransport::NotPostgres) => {}
+    }
+    println!("{path}: configuration OK");
+    ExitCode::SUCCESS
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     tracing_subscriber::fmt()
@@ -313,7 +372,7 @@ async fn main() -> ExitCode {
     };
     let cfg: GatewayConfig = match std::fs::read_to_string(&path)
         .map_err(|e| e.to_string())
-        .and_then(|s| toml::from_str(&s).map_err(|e| e.to_string()))
+        .and_then(|s| api_gateway::config::parse_toml(&s))
     {
         Ok(c) => c,
         Err(e) => {
@@ -322,16 +381,7 @@ async fn main() -> ExitCode {
         }
     };
     if check {
-        return match cfg.validate() {
-            Ok(()) => {
-                println!("{path}: configuration OK");
-                ExitCode::SUCCESS
-            }
-            Err(e) => {
-                eprintln!("error: {path}: {e}");
-                ExitCode::from(2)
-            }
-        };
+        return check_config(&path, &cfg);
     }
     match run(cfg).await {
         Ok(()) => ExitCode::SUCCESS,

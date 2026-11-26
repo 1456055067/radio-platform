@@ -42,7 +42,7 @@ async fn main() -> ExitCode {
     };
     let cfg: AgentConfig = match std::fs::read_to_string(&path)
         .map_err(|e| e.to_string())
-        .and_then(|s| toml::from_str(&s).map_err(|e| e.to_string()))
+        .and_then(|s| scanner_agent::config::parse_toml(&s))
     {
         Ok(c) => c,
         Err(e) => {

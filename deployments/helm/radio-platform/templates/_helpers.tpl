@@ -36,6 +36,9 @@ app.kubernetes.io/component: gateway
   "database" (dict "backend" "postgres" "max_connections" (int .Values.database.maxConnections))
   "cluster" (dict "enabled" (gt (int .Values.replicaCount) 1))
 -}}
+{{- if .Values.database.insecureTransport -}}
+{{- $_ := set $fixed.database "insecure_transport" true -}}
+{{- end -}}
 {{- if .Values.secrets.agentCrl -}}
 {{- $_ := set $fixed.agents "client_crl" "/etc/radio/agent-ca/ca.crl" -}}
 {{- end -}}

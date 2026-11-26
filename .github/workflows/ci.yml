@@ -99,9 +99,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Start a TLS PostgreSQL with a throw-away test CA
+        run: |
+          d="$RUNNER_TEMP/pgtls"; mkdir -p "$d"; cd "$d"
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 1 -subj "/CN=radio CI CA" \
+            -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign,cRLSign -keyout ca.key -out ca.crt
+          openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj /CN=pg-tls.test -keyout server.key -out server.csr
+          printf 'subjectAltName=DNS:pg-tls.test\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\n' > ext
+          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 1 -extfile ext -out server.crt
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 1 -subj "/CN=other CA" -keyout other.key -out other.crt
+          echo "127.0.0.1 pg-tls.test" | sudo tee -a /etc/hosts
+          docker run -d --name pgtls -p 127.0.0.1:5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust -v "$d:/certs:ro" postgres:18-alpine \
+            sh -c 'mkdir -p /etc/pgtls && cp /certs/server.crt /certs/server.key /etc/pgtls/ && chown -R postgres /etc/pgtls && chmod 600 /etc/pgtls/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/pgtls/server.crt -c ssl_key_file=/etc/pgtls/server.key'
+          for _ in $(seq 1 30); do docker exec pgtls pg_isready -U postgres -h 127.0.0.1 && break; sleep 1; done
+          docker exec pgtls pg_isready -U postgres -h 127.0.0.1
       - name: Store conformance and migrations on PostgreSQL
         env:
           TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
+          TEST_TLS_DATABASE_URL: postgres://postgres:not-a-real-secret@pg-tls.test:5433/postgres?sslmode=verify-full&sslrootcert=${{ runner.temp }}/pgtls/ca.crt
+          TEST_TLS_OTHER_CA: ${{ runner.temp }}/pgtls/other.crt
         run: |
           cargo test -p platform-storage -- --include-ignored
           cargo test -p scanner-agent --test e2e -- --include-ignored two_replicas_over_postgres
@@ -148,6 +164,35 @@ jobs:
           render
           render --set replicaCount=1
           render --set replicaCount=1 --set media.enabled=true --set media.publicAddress=203.0.113.5:50000
+          render --set database.insecureTransport=true
+          grep -Eq '^[[:space:]]*insecure_transport = true$' /tmp/gateway.toml
+          render
+          if grep -q 'insecure_transport' /tmp/gateway.toml; then
+            echo "::error::insecure_transport rendered by default"; exit 1
+          fi
+          helm template t deployments/helm/radio-platform --set secrets.databaseCa=db-ca | grep -q /etc/radio/database-ca
+      - name: Rendered gateway.toml applies the database transport policy
+        env:
+          DATABASE_URL: postgres://u@pg.db.svc.cluster.local/radio
+        run: |
+          gateway() {
+            helm template t deployments/helm/radio-platform "$@" \
+              | yq 'select(.kind == "ConfigMap") | .data["gateway.toml"]' > /tmp/gateway.toml
+            cargo run -q -p api-gateway -- --check-config /tmp/gateway.toml > /tmp/out.txt 2>&1
+          }
+          set +e
+          gateway
+          code=$?
+          set -e
+          cat /tmp/out.txt
+          if [ "$code" -ne 2 ]; then
+            echo "::error::default render accepted an in-cluster plaintext database (exit $code)"; exit 1
+          fi
+          grep -q 'requires sslmode=verify-full' /tmp/out.txt
+          gateway --set database.insecureTransport=true
+          cat /tmp/out.txt
+          grep -Eq '^warning: .*pg\.db\.svc\.cluster\.local.*not verified TLS' /tmp/out.txt
+          grep -q 'configuration OK' /tmp/out.txt
       - name: Guard rails refuse unsafe values
         run: |
           if helm template t deployments/helm/radio-platform --set media.enabled=true --set media.publicAddress=x:1; then

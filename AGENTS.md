@@ -98,6 +98,8 @@ The PostgreSQL conformance suite runs when a server is available:
 ```bash
 TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres cargo test -p platform-storage -- --include-ignored
 TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres cargo test -p scanner-agent --test e2e -- --include-ignored two_replicas_over_postgres
+# TLS (verify-full with a private CA; see the CI `postgres` job for the set-up):
+TEST_TLS_DATABASE_URL='postgres://…@pg-tls.test:5433/postgres?sslmode=verify-full&sslrootcert=…/ca.crt' cargo test -p platform-storage --test postgres_tls -- --include-ignored
 ```
 
 Security invariants that tests enforce. Do not weaken them:
@@ -107,6 +109,11 @@ Security invariants that tests enforce. Do not weaken them:
 - Control commands require an exclusive lease. `raw` requires
   `scanner_admin`.
 - All SQL is static; values are bound parameters.
+- **Database transport (ADR 0012):** off-loopback PostgreSQL requires
+  `sslmode=verify-full` unless `[database] insecure_transport = true`.
+  Connect only through `PgTarget::check` → `PgStore::connect_target`
+  (`PgStore::connect` is for tests and the devstack). Never log or format a
+  database URL or `PgConnectOptions`.
 - The gateway never serves `/dev/*`. `radio-devstack` binds loopback only.
 - Discovery never probes enrolled or managed endpoints. It sends only
   `MDL` and stays within the agent's local policy.

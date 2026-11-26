@@ -20,8 +20,100 @@ Phase 6.
   - Before the agent connects, register the ID with `POST /api/v1/agents`.
 - **Gateway certificate:** SANs must match the hostname or IP in the
   agent's `gateway.url`, with extended key usage `serverAuth`.
-- Only TLS 1.3 is negotiated (rustls with the AWS-LC provider).
+- Only TLS 1.3 is negotiated on the gateway listeners and by agents
+  (rustls with the AWS-LC provider). The database link is different: see
+  [Database TLS](#database-tls).
 - Keep private keys readable only by the service user.
+
+## Database TLS
+
+The gateway connects to PostgreSQL with rustls and AWS-LC (ADR 0012). The
+database link uses **TLS 1.2 or 1.3**: sqlx accepts both and cannot be told
+to require 1.3. Current PostgreSQL negotiates 1.3. To forbid 1.2, set this
+on the PostgreSQL server:
+
+```text
+ssl_min_protocol_version = 'TLSv1.3'
+```
+
+**Policy.** When the database is **not on loopback**, the gateway refuses
+to start unless the URL requires `sslmode=verify-full` (certificate chain
+and host name). `--check-config` applies the same check to the URL in its
+environment.
+- Loopback means the literal `localhost`, `127.0.0.0/8` or `::1`. Names
+  are not resolved, so `localhost.`, `*.localhost`, `::ffff:127.0.0.1`
+  and any other name count as remote. Unix sockets (`host=/run/postgresql`)
+  count as local. Loopback and socket connections need no TLS.
+- `hostaddr` (or `PGHOSTADDR`), when set, is where the gateway connects,
+  so it decides: host `localhost` with `hostaddr=10.0.0.5` is remote.
+- The check uses the effective URL: `DATABASE_URL` overrides
+  `[database] url`. `PGHOST`, `PGHOSTADDR`, `PGSSLMODE` and `PGSSLROOTCERT`
+  apply as they do in sqlx.
+- `disable`, `allow`, `prefer`, `require`, `verify-ca` and a missing
+  `sslmode` (which means `prefer`) are refused off loopback. `verify-ca` is
+  refused because the built-in public roots stay trusted (below), so it
+  would accept a publicly issued certificate for any name.
+- Unknown or repeated URL parameters (`host`, `hostaddr`, `port`,
+  `sslmode`, `sslrootcert`, `sslcert`, `sslkey` and their aliases) are
+  refused, as are URLs over 8 KiB or with more than 32 parameters. Error
+  messages never contain the URL, the password or parameter values.
+
+**URL form:**
+
+```text
+postgres://radio:<password>@db.example.org:5432/radio?sslmode=verify-full&sslrootcert=/etc/radio/database-ca/ca.crt
+```
+
+- The server certificate must have a SAN for the host name in the URL.
+- **`sslrootcert`** names a PEM file (or holds inline PEM) with the CA that
+  issued the server certificate. It is needed only for a private CA. It
+  **adds to** the compiled-in Mozilla roots; it does not replace them, as
+  it would in libpq. A public CA that issues a certificate for your
+  database's DNS name is therefore also trusted. Prefer a private DNS name
+  (for example `*.svc.cluster.local`) for the database.
+- Managed databases (for example Amazon RDS) need their provider's CA
+  bundle in `sslrootcert` unless their certificate chains to a public root.
+- `sslrootcert=system` (libpq) is not supported; omit `sslrootcert` to use
+  the built-in public roots.
+- The CA file is read once per process: after a CA change, restart the
+  gateway (see `docs/operations.md`).
+- Client certificates (`sslcert`, `sslkey`) are not required or tested;
+  the database authenticates the gateway by password.
+
+**Opt-out.** `[database] insecure_transport = true` accepts an
+off-loopback database without `verify-full` (plaintext or unverified TLS).
+Database credentials, audit records and transcripts can then be read or
+altered on the network. The gateway logs a warning at every start and
+`--check-config` prints one. Use it only for a database on a network you
+trust, and plan to add TLS. A misspelt key is ignored, so the gateway
+still refuses to start.
+
+**Helm.**
+- `secrets.database`: Secret with key `DATABASE_URL`, in the URL form
+  above.
+- `secrets.databaseCa` (default `""`): name of a Secret with key `ca.crt`,
+  the database CA. It is mounted read-only at `/etc/radio/database-ca`, so
+  use `sslrootcert=/etc/radio/database-ca/ca.crt`.
+- `database.insecureTransport` (default `false`): sets
+  `insecure_transport = true` in the rendered `gateway.toml`, and the
+  install notes show a warning. The opt-out cannot be set through
+  `config`. Every replica should use the same Secret, so all apply the
+  same policy.
+
+**Upgrading with in-cluster PostgreSQL without TLS.** A Service name such
+as `pg.db.svc.cluster.local` is not loopback. After upgrading, a gateway
+whose `DATABASE_URL` has no `sslmode=verify-full` refuses to start and its
+pods crash-loop. Before upgrading, either:
+1. enable TLS on PostgreSQL, put its CA in a Secret, set
+   `secrets.databaseCa`, and change `DATABASE_URL` to `sslmode=verify-full`
+   with `sslrootcert=/etc/radio/database-ca/ca.crt`; or
+2. set `database.insecureTransport: true` to keep the plaintext link, with
+   the warning, until TLS is in place.
+
+Check first: `DATABASE_URL=… api-gateway --check-config gateway.toml`
+exits 2 with "requires sslmode=verify-full" when the gateway would refuse
+to start. A database reached over loopback or a Unix socket (for example
+a sidecar or the same host) needs no change.
 
 ## Quick start (development)
 
@@ -162,8 +254,9 @@ Both are **off by default**.
   `cosign verify ghcr.io/<owner>/radio-gateway@<digest> --certificate-identity-regexp '^https://github.com/<owner>/' --certificate-oidc-issuer https://token.actions.githubusercontent.com`.
   Pin images by digest.
 - **Kubernetes:** `helm install radio deployments/helm/radio-platform -f
-  my-values.yaml`. Create the TLS, agent CA and database secrets first (see
-  `values.yaml`). Chart settings go in `config` as TOML; the chart owns the
+  my-values.yaml`. Create the TLS, agent CA and database secrets (and, for
+  a private database CA, the `secrets.databaseCa` Secret) first (see
+  `values.yaml` and [Database TLS](#database-tls)). Chart settings go in `config` as TOML; the chart owns the
   listener, TLS, database, cluster, metrics and media tables and refuses
   overrides. More than one replica enables cluster mode. Live audio is
   supported with one replica only.
@@ -171,7 +264,10 @@ Both are **off by default**.
 - **Metrics:** `[metrics] bind = "127.0.0.1:9464"` (or the pod IP behind
   the chart's NetworkPolicy). The endpoint has no authentication.
 - **Checks:** `api-gateway --check-config` and `scanner-agent
-  --check-config` validate a file without starting the service.
+  --check-config` validate a file without starting the service. The
+  gateway check also applies the database transport policy to
+  `DATABASE_URL` (or `[database] url`) when one is set; otherwise it notes
+  that the policy is checked at start-up.
 
 ## Agent certificate revocation
 

@@ -287,6 +287,18 @@ service (ADR 0010).
 - [ ] Container image build verified locally (the local build ran out of
   VM disk; CI builds it).
 - [ ] Helm chart installed on a real cluster (rendered and linted only).
+- [x] Database transport policy (ADR 0012, threat T54): TLS to PostgreSQL
+  with rustls + AWS-LC; off loopback only `sslmode=verify-full`, else the
+  gateway refuses to start (opt-out `[database] insecure_transport`,
+  Helm `database.insecureTransport`); checked by `--check-config`; policy
+  tests in `pg_transport.rs`, `transport_policy_guard.rs` and
+  `check_config.rs`.
+- [ ] Database TLS handshake verified in CI: `postgres_tls_verify_full_with_private_ca`
+  and the new CI `postgres` and `helm` steps exist but have not yet run on
+  GitHub Actions (NOT RUN locally).
+- [ ] Database link follow-ups: a sqlx option that makes `sslrootcert`
+  replace the public roots; client-certificate authentication to
+  PostgreSQL; TLS 1.3-only from the client side.
 - [ ] Load test of a deployed gateway with PostgreSQL and TLS.
 - [ ] OpenTelemetry tracing; agent-side metrics.
 - [ ] Partitioning of `events` and `transmissions`.

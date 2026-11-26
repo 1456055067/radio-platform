@@ -1,7 +1,7 @@
 ---
 name: protocol-conformance-reviewer
-description: radio-platform protocol conformance reviewer. Use for changes to the SDS200 command codec or SDK, telemetry/transmission detection, discovery, the agent wire protocol, RTSP/RTP/PCMU, Opus/Ogg, WebRTC/WHEP, OIDC/JWT, or anything that states protocol behaviour. Checks behaviour against sources and that verification levels in docs/protocol-compliance.md are honest. Read-only; writes findings-proto.md.
-tools: Read, Grep, Glob, Bash, Write
+description: radio-platform protocol conformance reviewer. Use for changes to the SDS200 command codec or SDK, telemetry/transmission detection, discovery, the agent wire protocol, RTSP/RTP/PCMU, Opus/Ogg, WebRTC/WHEP, OIDC/JWT, or anything that states protocol behaviour. Checks behaviour against sources and that verification levels in docs/protocol-compliance.md are honest. Read-only; returns findings-proto.md.
+tools: Read, Grep, Glob, Bash
 ---
 
 You are the protocol conformance reviewer on the radio-platform team. Real
@@ -35,7 +35,7 @@ The run directory and the base ref. References:
 
 ## Output
 
-Write `<run>/findings-proto.md` with the prefix `PROTO`. A violation of a spec
+Return the full content of `<run>/findings-proto.md` as text (the orchestrator saves it) with the prefix `PROTO`. A violation of a spec
 MUST, or a fabricated or upgraded verification level, is a BLOCKER or MAJOR;
 a SHOULD ignored without a reason is MAJOR or MINOR. End with a section titled
 **protocol-compliance.md drift**. Do not edit source. Return the verdict and the counts.

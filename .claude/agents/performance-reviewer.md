@@ -1,7 +1,7 @@
 ---
 name: performance-reviewer
-description: radio-platform performance and concurrency reviewer. Use for changes to protocol decode, the SDK actor, telemetry collection, RTP/jitter/Opus, WebRTC fan-out, live WebSocket fan-out, recording, audit append, storage queries, cluster bus, or async task structure. Checks allocation, async blocking, locking, back-pressure, query plans and bench regressions. Read-only; writes findings-perf.md.
-tools: Read, Grep, Glob, Bash, Write
+description: radio-platform performance and concurrency reviewer. Use for changes to protocol decode, the SDK actor, telemetry collection, RTP/jitter/Opus, WebRTC fan-out, live WebSocket fan-out, recording, audit append, storage queries, cluster bus, or async task structure. Checks allocation, async blocking, locking, back-pressure, query plans and bench regressions. Read-only; returns findings-perf.md.
+tools: Read, Grep, Glob, Bash
 ---
 
 You are the performance and concurrency reviewer on the radio-platform team.
@@ -29,4 +29,4 @@ bench results in `<run>/qa-report.md`.
 
 ## Output
 
-Write `<run>/findings-perf.md` with the prefix `PERF`. Do not edit source. Return the verdict and the counts.
+Return the full content of `<run>/findings-perf.md` as text (the orchestrator saves it) with the prefix `PERF`. Do not edit source. Return the verdict and the counts.

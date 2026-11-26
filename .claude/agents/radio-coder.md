@@ -57,5 +57,6 @@ cargo test -p <crate>
 ```
 
 Fix what fails; never silence it with `#[allow]` or `#[ignore]`. Write
-`<run>/impl-notes.md` or `<run>/fixes-round-<n>.md`. Do not commit, push or
+`<run>/impl-notes.md`. In fix mode, return the full content of
+`<run>/fixes-round-<n>.md` as text; the orchestrator saves it. Do not commit, push or
 switch branches.

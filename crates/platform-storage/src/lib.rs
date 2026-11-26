@@ -11,11 +11,15 @@ pub mod bus;
 mod memory;
 pub mod model;
 mod page;
+pub mod pg_transport;
 mod postgres;
 mod store;
 
 pub use bus::{MemoryBus, MessageBus, PgBus};
 pub use memory::MemoryStore;
 pub use page::{DEFAULT_PAGE, MAX_PAGE, Page, PageRequest};
+pub use pg_transport::{
+    CheckedTarget, PgDestination, PgTarget, PgTransportError, TransportVerdict,
+};
 pub use postgres::{MIGRATOR, PgStore};
 pub use store::{Store, StoreError, StoreResult};

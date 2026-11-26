@@ -16,6 +16,7 @@ flowchart LR
         SC[SDS200<br/>UDP 50536 · RTSP 554 · RTP]
     end
     AG <-- plaintext UDP/RTSP/RTP --> SC
+    API -- "TLS 1.2/1.3, verify-full off loopback (ADR 0012)" --> DB[(PostgreSQL)]
 ```
 
 - **Everything left of the agent** will be authenticated and encrypted
@@ -26,6 +27,19 @@ flowchart LR
   prevent SSRF through enrollment), connected UDP sockets, strict parsing
   and bounded resources.
 - Scanner ports must never be exposed to the public Internet.
+- **The gateway–PostgreSQL link** carries database credentials, audit
+  records, transcripts, leases and cluster-bus messages. The "TLS 1.3"
+  above applies to the gateway listeners and the agents only. The database
+  link uses rustls with AWS-LC at **TLS 1.2 or 1.3** (sqlx cannot require
+  1.3; operators set `ssl_min_protocol_version = 'TLSv1.3'` on the server).
+  Off loopback the gateway refuses to start unless the URL is
+  `sslmode=verify-full`; loopback and Unix-socket databases are inside the
+  host and need no TLS. The explicit opt-out `[database]
+  insecure_transport` (Helm `database.insecureTransport`) moves the link
+  outside the protected boundary and is warned at every start. The
+  database server and anyone holding its credentials remain inside the
+  trust boundary (the cluster bus, ADR 0008, is unauthenticated within
+  it).
 
 ## Controls implemented in Phase 1
 
@@ -91,6 +105,8 @@ flowchart LR
 | Distroless non-root images; SBOM, provenance and cosign signatures; native multi-arch builds | `deployments/container`, `images.yml` |
 | Helm: restricted pod security (non-root, read-only root, no capabilities, seccomp), no service-account token, NetworkPolicy (metrics only from monitoring), PDB, values schema, chart-owned security settings | `deployments/helm/radio-platform` |
 | Sandboxed agent unit (dynamic user, no capabilities, strict filesystem, syscall filter) | `deployments/systemd` |
+| Database transport (ADR 0012): TLS to PostgreSQL with rustls + AWS-LC (TLS 1.2 or 1.3); off loopback only `sslmode=verify-full` is accepted (`verify-ca`, `require`, `prefer` and plaintext refused) unless `[database] insecure_transport`, which is off by default and warned; destination decided by `hostaddr` when set; loopback decided lexically; enforced in `--check-config` and before connecting; the connect path accepts only a policy-checked target and re-checks it against sqlx; URL and password never logged or echoed | `platform_storage::pg_transport` (`PgTarget::check`, `CheckedTarget`), `PgStore::connect_target`, `GatewayConfig::check_database_transport` |
+| Configuration parse errors give the message and line and column only, never the source line (which may hold the database password) | `config::parse_toml` (gateway and agent) |
 | Nightly fuzzing of every target with a persistent corpus; seeds in `fuzz/seeds` | `fuzz-nightly.yml` |
 
 ## Controls implemented in Phase 5 (transcription, search, retention)
@@ -139,6 +155,11 @@ Known limitations:
 - No OCSP; revocation is CRL-only and only for agent certificates.
 - The cluster bus is unauthenticated within the database trust boundary
   (ADR 0008).
+- Database link (POA&M item 3): `sslrootcert` adds to the built-in public
+  roots instead of replacing them; TLS 1.2 is accepted; no client
+  certificate; a database CA change needs a gateway restart; the
+  `insecure_transport` opt-out exists. The real TLS test runs only in CI
+  and has not yet run on GitHub Actions.
 
 Planned:
 - non-root, read-only containers;

@@ -24,8 +24,15 @@ crl_refresh_secs = 300                    # an expired CRL refuses ALL agents (f
 
 [database]
 backend = "postgres"                     # or "memory" for development
-# url is read from DATABASE_URL when set
+# url is read from DATABASE_URL when set. Off loopback the gateway requires
+# verified TLS and refuses to start otherwise, for example:
+# DATABASE_URL=postgres://radio:…@db.example.org:5432/radio?sslmode=verify-full&sslrootcert=/etc/radio/database-ca/ca.crt
+# (sslrootcert only for a private CA; it adds to the built-in public roots).
+# Loopback and Unix-socket databases need no TLS.
 max_connections = 10
+# Accept a non-loopback database without sslmode=verify-full (plaintext or
+# unverified TLS). Leave off; the gateway warns at every start when set.
+# insecure_transport = false
 
 [auth]
 issuer = "https://idp.example.org/realms/radio"

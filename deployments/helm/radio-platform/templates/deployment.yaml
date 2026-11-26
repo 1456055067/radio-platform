@@ -75,6 +75,9 @@ spec:
             - { name: config, mountPath: /etc/radio/config, readOnly: true }
             - { name: tls, mountPath: /etc/radio/tls, readOnly: true }
             - { name: agent-ca, mountPath: /etc/radio/agent-ca, readOnly: true }
+            {{- if .Values.secrets.databaseCa }}
+            - { name: database-ca, mountPath: /etc/radio/database-ca, readOnly: true }
+            {{- end }}
             - { name: tmp, mountPath: /tmp }
       volumes:
         - name: config
@@ -83,6 +86,10 @@ spec:
           secret: { secretName: {{ .Values.secrets.tls | quote }} }
         - name: agent-ca
           secret: { secretName: {{ .Values.secrets.agentCa | quote }} }
+        {{- with .Values.secrets.databaseCa }}
+        - name: database-ca
+          secret: { secretName: {{ . | quote }}, items: [{ key: ca.crt, path: ca.crt }] }
+        {{- end }}
         - name: tmp
           emptyDir: { sizeLimit: 64Mi }
       {{- with .Values.nodeSelector }}
