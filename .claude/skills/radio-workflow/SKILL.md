@@ -108,6 +108,21 @@ Every delegation prompt **must** include the absolute run directory path and
 say which files the agent reads and which one it writes. Agents return a
 short summary to you; the detail lives in the file.
 
+**Reviewers and fix rounds return their report as text.** The harness
+refuses report files written by subagents ("Subagents should return
+findings as text"), so each reviewer returns the full `findings-<role>.md`
+content in its final message, and the coder returns `fixes-round-<n>.md`
+the same way. You save it to the run directory unchanged, with a one-line
+note that the orchestrator saved it. The architect's `plan.md`, the
+coder's `impl-notes.md` and QA's `qa-report.md` can be written by the
+agents themselves; if a write is refused, save the returned text the same
+way.
+
+**Agent types.** The roles in `.claude/agents/` load when a session
+starts. In the session that creates or edits them, run each role as a
+`general-purpose` agent whose prompt starts with "You are the `<role>`
+agent. Read `.claude/agents/<role>.md` and follow it exactly".
+
 ## Phase 0: Triage
 
 1. Restate the task in `brief.md`: the goal, what is out of scope, acceptance
@@ -151,8 +166,9 @@ the fix loop.
 ## Review (parallel)
 
 Launch every selected reviewer **in a single message**. Each one gets the run
-directory, the base ref, and the instruction to write `findings-<role>.md` in
-the format from [references/report-format.md](references/report-format.md).
+directory, the base ref, and the instruction to return `findings-<role>.md`
+(as text, see above) in the format from
+[references/report-format.md](references/report-format.md).
 Do not put your own opinion of the change into the reviewer prompts.
 
 ## Phase 4: Fix loop

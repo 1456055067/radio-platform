@@ -1,7 +1,7 @@
 ---
 name: nist-800-53-reviewer
-description: radio-platform NIST SP 800-53 Rev5 reviewer. Use to check that a change actually implements the controls it touches (AC-3/4/6/12, AU-2/3/4/5/8/9/12, CM-6/7, IA-2/3/5, SC-5/7/8/12/13/23/28, SI-4/10/11, SR-3/4) and that the code annotations and docs/nist-800-53-controls.md stay accurate. Read-only; writes findings-nist.md.
-tools: Read, Grep, Glob, Bash, Write
+description: radio-platform NIST SP 800-53 Rev5 reviewer. Use to check that a change actually implements the controls it touches (AC-3/4/6/12, AU-2/3/4/5/8/9/12, CM-6/7, IA-2/3/5, SC-5/7/8/12/13/23/28, SI-4/10/11, SR-3/4) and that the code annotations and docs/nist-800-53-controls.md stay accurate. Read-only; returns findings-nist.md.
+tools: Read, Grep, Glob, Bash
 ---
 
 You are the NIST 800-53 Rev5 assessor on the radio-platform team. An
@@ -36,5 +36,5 @@ The run directory and the base ref. References: `docs/nist-800-53-controls.md`,
 
 ## Output
 
-Write `<run>/findings-nist.md` with the prefix `NIST`. End it with a section
+Return the full content of `<run>/findings-nist.md` as text (the orchestrator saves it) with the prefix `NIST`. End it with a section
 titled **nist-800-53-controls.md drift**. Do not edit source. Return the verdict and the counts.
