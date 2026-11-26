@@ -4,6 +4,27 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+### Changed
+- Dependency updates (supersede Dependabot PRs #1-8 and #10-15):
+  jsonwebtoken 11, x509-parser 0.18, tower-http 0.7, tokio-tungstenite
+  0.29, utoipa 6, base64 0.23; react-router 8 and the npm minor group;
+  actions/cache v6, actions/setup-node v7, docker/login-action v4,
+  docker/setup-buildx-action v4, docker/build-push-action v7,
+  azure/setup-helm v5. No code changes were needed.
+- The console now needs Node 22.22 or later (react-router 8).
+- Dependabot no longer proposes `@types/node` majors beyond the Node
+  version CI runs, or majors from the `/fuzz` entry (they edited the root
+  `Cargo.toml` without its lockfile and broke the `--locked` image build).
+
+### Security
+- OIDC: a token whose `iss` is not a single string, or whose `aud` is not
+  a string or an array of strings, is now refused. jsonwebtoken 10 and 11
+  accepted `"iss": ["<issuer>"]`; the signature and issuer value were
+  still checked, so this was a conformance gap, not a bypass.
+- Tests pin the JWT registered-claim checks, the agent identity taken
+  from a client certificate (x509-parser 0.18 skips malformed SAN entries
+  instead of failing the extension), and a 404 for `/assets/<file>/`.
+
 ## [0.2.0] - 2026-11-26
 
 PostgreSQL transport security release. **Breaking:** an off-loopback
