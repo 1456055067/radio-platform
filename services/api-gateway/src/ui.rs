@@ -9,7 +9,9 @@
 //!   only from this origin, network access only to this origin and the
 //!   identity provider, no framing.
 //! - Unknown paths outside `/api/` fall back to `index.html` so client-side
-//!   routes survive a reload. Unknown `/api/` paths still return a JSON 404.
+//!   routes survive a reload. Unknown `/api/` paths still return a JSON 404,
+//!   and unknown `/assets/` files a plain 404: a browser still running an
+//!   older build must see a failed chunk load, not HTML served as a script.
 
 use std::path::PathBuf;
 
@@ -118,6 +120,7 @@ pub fn router(cfg: &UiConfig) -> Result<Router, String> {
     let static_files = ServeDir::new(&cfg.dir)
         .append_index_html_on_directories(false)
         .fallback(ServeFile::new(index));
+    let assets = ServeDir::new(&cfg.dir).append_index_html_on_directories(false);
 
     let config_route = get(move || {
         let body = body.clone();
@@ -134,8 +137,9 @@ pub fn router(cfg: &UiConfig) -> Result<Router, String> {
 
     let fallback = move |req: Request| {
         let files = static_files.clone();
+        let assets = assets.clone();
         let csp = csp.clone();
-        async move { serve_static(files, csp, req).await }
+        async move { serve_static(files, assets, csp, req).await }
     };
 
     Ok(Router::new()
@@ -143,7 +147,12 @@ pub fn router(cfg: &UiConfig) -> Result<Router, String> {
         .fallback(fallback))
 }
 
-async fn serve_static(files: ServeDir<ServeFile>, csp: HeaderValue, req: Request) -> Response {
+async fn serve_static(
+    files: ServeDir<ServeFile>,
+    assets: ServeDir,
+    csp: HeaderValue,
+    req: Request,
+) -> Response {
     let path = req.uri().path().to_owned();
     if path.starts_with("/api/") || path == "/api" || path.starts_with("/dev/") {
         return ApiError::new(StatusCode::NOT_FOUND, "no such endpoint").into_response();
@@ -151,7 +160,12 @@ async fn serve_static(files: ServeDir<ServeFile>, csp: HeaderValue, req: Request
     if req.method() != axum::http::Method::GET && req.method() != axum::http::Method::HEAD {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
     }
-    let mut resp = match files.oneshot(req).await {
+    let served = if path.starts_with("/assets/") {
+        assets.oneshot(req).await
+    } else {
+        files.oneshot(req).await
+    };
+    let mut resp = match served {
         Ok(r) => r.map(Body::new),
         Err(e) => match e {},
     };

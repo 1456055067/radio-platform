@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { lazy, useMemo } from 'react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router';
 import AppLayout from '@cloudscape-design/components/app-layout';
 import Badge from '@cloudscape-design/components/badge';
@@ -9,15 +9,19 @@ import TopNavigation from '@cloudscape-design/components/top-navigation';
 import { useAuth } from './auth/AuthContext';
 import { useLive } from './hooks/LiveContext';
 import { useNotifications } from './hooks/Notifications';
-import { Dashboard } from './pages/Dashboard';
-import { Scanners } from './pages/Scanners';
-import { Sites } from './pages/Sites';
-import { VirtualScanner } from './pages/VirtualScanner';
-import { Transmissions } from './pages/Transmissions';
-import { Events } from './pages/Events';
-import { Audit } from './pages/Audit';
-import { Analytics } from './pages/Analytics';
+import { PageBoundary } from './components/PageBoundary';
 import { NotFound } from './pages/NotFound';
+
+// Each page is its own chunk, loaded when first visited, so the first load
+// fetches only the shell and the page being opened.
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const Scanners = lazy(() => import('./pages/Scanners').then((m) => ({ default: m.Scanners })));
+const Sites = lazy(() => import('./pages/Sites').then((m) => ({ default: m.Sites })));
+const VirtualScanner = lazy(() => import('./pages/VirtualScanner').then((m) => ({ default: m.VirtualScanner })));
+const Transmissions = lazy(() => import('./pages/Transmissions').then((m) => ({ default: m.Transmissions })));
+const Events = lazy(() => import('./pages/Events').then((m) => ({ default: m.Events })));
+const Audit = lazy(() => import('./pages/Audit').then((m) => ({ default: m.Audit })));
+const Analytics = lazy(() => import('./pages/Analytics').then((m) => ({ default: m.Analytics })));
 
 function LiveBadge() {
   const { state } = useLive();
@@ -106,6 +110,7 @@ export function App() {
           />
         }
         content={
+          <PageBoundary resetKey={location.pathname}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/scanners" element={<Scanners />} />
@@ -117,6 +122,7 @@ export function App() {
             <Route path="/audit" element={<Audit />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </PageBoundary>
         }
       />
     </>

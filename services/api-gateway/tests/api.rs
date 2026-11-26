@@ -731,6 +731,13 @@ async fn ui_is_served_with_security_headers() {
             .unwrap()
             .contains("immutable")
     );
+    let r = get("/assets/app-gone999.js").await;
+    assert_eq!(
+        r.status(),
+        StatusCode::NOT_FOUND,
+        "a chunk from an older build is a 404, never index.html"
+    );
+    assert_eq!(r.headers()["cache-control"], "no-cache");
 
     let r = get("/ui-config.json").await;
     let body = r.into_body().collect().await.unwrap().to_bytes();

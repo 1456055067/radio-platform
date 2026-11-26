@@ -5,7 +5,7 @@ import Spinner from '@cloudscape-design/components/spinner';
 import { ApiClient, describeError } from '../api/client';
 import type { Me, Permission } from '../api/types';
 import { loadUiConfig } from './config';
-import { DEV_ROLE_KEY, DevSession, OidcSession, SignInRequired, type DevRole, type Session } from './session';
+import { DEV_ROLE_KEY, DevSession, SignInRequired, type DevRole, type Session } from './session';
 import { DevSignIn } from './DevSignIn';
 
 export interface AuthValue {
@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         session = new DevSession(devRole);
       } else {
+        const { OidcSession } = await import('./oidc');
         const s = new OidcSession(cfg.auth);
         const path = await s.init();
         if (path !== window.location.pathname + window.location.search) window.history.replaceState(null, '', path);

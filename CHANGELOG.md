@@ -7,6 +7,14 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 ### Added
 - Playwright browser end-to-end tests (`frontend/e2e`, 13 tests) against
   `radio-devstack`, and an `e2e` CI job that uploads traces on failure.
+- Console code-splitting: each page is loaded when first visited, React
+  and the router are a separately cached chunk, and `oidc-client-ts` loads
+  only in OIDC mode. A page whose chunk cannot be loaded (for example after
+  a redeploy) offers a reload.
+
+### Fixed
+- The gateway served `index.html` (200, `text/html`) for a missing file
+  under `/assets/`; it now answers 404, so a stale chunk fails cleanly.
 
 ## [0.1.0] - 2026-11-26
 

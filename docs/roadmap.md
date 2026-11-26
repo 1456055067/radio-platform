@@ -226,8 +226,11 @@ Cloudscape. It has been verified only against simulated scanners
   `radio-devstack`: roles, navigation, control lease with two users,
   live WebRTC audio, transcript search and playback, Analytics, audit
   verification.
-- [ ] Code-splitting: the bundle is 1.5 MB of JS (430 kB gzip), mostly
-  Cloudscape.
+- [x] Code-splitting: pages load on demand, React and the router are a
+  separately cached chunk, and the OIDC client loads only in OIDC mode.
+  Opening the Dashboard fetches 308 kB of JS (gzip) instead of 437 kB; a
+  chunk from an older build shows a reload prompt (the gateway answers
+  404 for it).
 
 ## Phase 5 — Advanced Capabilities
 
@@ -287,5 +290,4 @@ service (ADR 0010).
 - [ ] Load test of a deployed gateway with PostgreSQL and TLS.
 - [ ] OpenTelemetry tracing; agent-side metrics.
 - [ ] Partitioning of `events` and `transmissions`.
-- [ ] Console code-splitting (from
-  Phase 4).
+- [x] Console code-splitting (from Phase 4).

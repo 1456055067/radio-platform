@@ -22,7 +22,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 2500,
+    // Pages load on demand (App.tsx). React and the router change rarely,
+    // so they get their own chunk that stays cached across releases.
+    // The entry is the Cloudscape app shell (about 190 kB gzip).
+    chunkSizeWarningLimit: 800,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ }],
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',
