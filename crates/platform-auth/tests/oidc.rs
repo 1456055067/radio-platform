@@ -218,3 +218,78 @@ async fn discovery_and_key_rotation() {
     .await
     .unwrap();
 }
+
+/// Pins the registered-claim checks that the JWT library performs for us,
+/// so a dependency upgrade that relaxes one of them fails here.
+#[tokio::test]
+async fn rejects_registered_claim_edge_cases() {
+    let iss = TestIssuer::new(ISS, AUD);
+    let v = verifier(&iss, config());
+    let tenant = TenantId::new().to_string();
+    let now = now_utc();
+    let ts = now.unix_timestamp();
+    let base = || {
+        json!({
+            "iss": ISS, "aud": AUD, "sub": "a", "tenant_id": tenant,
+            "iat": ts, "nbf": ts - 1, "exp": ts + 300,
+        })
+    };
+    // Control: the base claims are accepted.
+    assert!(v.verify(&iss.sign(&base()), now).await.is_ok());
+
+    type Mutate = Box<dyn Fn(&mut serde_json::Value)>;
+    let cases: Vec<(&str, Mutate)> = vec![
+        (
+            "nbf in the future",
+            Box::new(move |c| c["nbf"] = json!(ts + 3600)),
+        ),
+        (
+            "missing exp",
+            Box::new(|c| {
+                c.as_object_mut().unwrap().remove("exp");
+            }),
+        ),
+        (
+            "missing iss",
+            Box::new(|c| {
+                c.as_object_mut().unwrap().remove("iss");
+            }),
+        ),
+        (
+            "missing aud",
+            Box::new(|c| {
+                c.as_object_mut().unwrap().remove("aud");
+            }),
+        ),
+        (
+            "missing sub",
+            Box::new(|c| {
+                c.as_object_mut().unwrap().remove("sub");
+            }),
+        ),
+        (
+            "exp as string",
+            Box::new(move |c| c["exp"] = json!((ts + 300).to_string())),
+        ),
+        ("iss as number", Box::new(|c| c["iss"] = json!(1))),
+        ("iss as array", Box::new(|c| c["iss"] = json!([ISS]))),
+        ("aud as number array", Box::new(|c| c["aud"] = json!([123]))),
+        (
+            "aud as object",
+            Box::new(|c| c["aud"] = json!({ "a": AUD })),
+        ),
+        ("sub as number", Box::new(|c| c["sub"] = json!(7))),
+        (
+            "aud array without ours",
+            Box::new(|c| c["aud"] = json!(["other"])),
+        ),
+    ];
+    for (name, mutate) in cases {
+        let mut claims = base();
+        mutate(&mut claims);
+        assert!(
+            v.verify(&iss.sign(&claims), now).await.is_err(),
+            "accepted a token with {name}"
+        );
+    }
+}

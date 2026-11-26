@@ -738,6 +738,9 @@ async fn ui_is_served_with_security_headers() {
         "a chunk from an older build is a 404, never index.html"
     );
     assert_eq!(r.headers()["cache-control"], "no-cache");
+    // A trailing slash on an asset path is a 404 too (tower-http 0.7).
+    let r = get("/assets/app-abc123.js/").await;
+    assert_eq!(r.status(), StatusCode::NOT_FOUND);
 
     let r = get("/ui-config.json").await;
     let body = r.into_body().collect().await.unwrap().to_bytes();

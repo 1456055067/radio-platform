@@ -26,6 +26,11 @@ updates:
     groups:
       npm-minor:
         update-types: [minor, patch]
+    ignore:
+      # Keep the Node types on the major that CI and `engines` run (22).
+      # Raise this together with `node-version` in ci.yml.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -45,3 +50,10 @@ updates:
     directory: /fuzz
     schedule:
       interval: monthly
+    ignore:
+      # Majors of shared crates come from the root entry, which updates the
+      # workspace Cargo.toml and both lockfiles. A major raised from here
+      # edits the root Cargo.toml without the root Cargo.lock, which breaks
+      # the --locked container build (seen on the utoipa 6 PR).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

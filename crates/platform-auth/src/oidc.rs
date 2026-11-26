@@ -307,6 +307,27 @@ impl OidcVerifier {
         now: OffsetDateTime,
     ) -> Result<Principal, AuthError> {
         let claim = |name: &str| AuthError::Claim(name.to_owned());
+        // The JWT library checks the values of `iss` and `aud` but accepts
+        // `iss` as an array (jsonwebtoken 10 and 11). RFC 7519 4.1.1 makes
+        // `iss` a single string; `aud` is a string or an array of strings.
+        // Check the types here so the result does not depend on the library.
+        // NIST 800-53 Rev5: IA-2 (only well-formed tokens from our issuer).
+        if c.get("iss").and_then(|v| v.as_str()) != Some(self.config.issuer.as_str()) {
+            return Err(claim("iss"));
+        }
+        let audience_ok = match c.get("aud") {
+            Some(serde_json::Value::String(a)) => a == &self.config.audience,
+            Some(serde_json::Value::Array(list)) => {
+                list.iter().all(serde_json::Value::is_string)
+                    && list
+                        .iter()
+                        .any(|a| a.as_str() == Some(self.config.audience.as_str()))
+            }
+            _ => false,
+        };
+        if !audience_ok {
+            return Err(claim("aud"));
+        }
         let subject = c
             .get("sub")
             .and_then(|v| v.as_str())
