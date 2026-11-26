@@ -49,7 +49,7 @@ async-trait = "0.1"
 aws-lc-rs = { version = "1", default-features = false, features = ["aws-lc-sys"] }
 opus = "0.4"
 axum = { version = "0.8", features = ["ws", "macros"] }
-base64 = "0.22"
+base64 = "0.23"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 governor = "0.10"
 hyper = { version = "1", features = ["server", "http1", "http2"] }
