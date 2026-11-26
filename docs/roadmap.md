@@ -56,7 +56,8 @@ that need verification on a real SDS200 before they count as complete.
   `protocol-compliance.md`.
 - [ ] Typed `NXT`/`PRV`, `FQK`/`SQK`/`DQK` set, `DTM`/`LCR` set, `MSI`
   menu XML and `AST`/`APR` analyse streams.
-- [ ] CI with GitHub Actions (workflow committed; not yet run on GitHub).
+- [x] CI with GitHub Actions (runs on every pull request and push to
+  `main`; first green run 2026-11-26).
 
 ## Phase 2 — Scanner Management (core complete)
 
@@ -293,9 +294,10 @@ service (ADR 0010).
   Helm `database.insecureTransport`); checked by `--check-config`; policy
   tests in `pg_transport.rs`, `transport_policy_guard.rs` and
   `check_config.rs`.
-- [ ] Database TLS handshake verified in CI: `postgres_tls_verify_full_with_private_ca`
-  and the new CI `postgres` and `helm` steps exist but have not yet run on
-  GitHub Actions (NOT RUN locally).
+- [x] Database TLS handshake verified in CI: `postgres_tls_verify_full_with_private_ca`,
+  the PostgreSQL conformance suite, `two_replicas_over_postgres` and the
+  `helm` transport-policy step passed in CI run 45887704517 (PR #16,
+  2026-11-26). Still NOT RUN locally (Podman VM disk full).
 - [ ] Database link follow-ups: a sqlx option that makes `sslrootcert`
   replace the public roots; client-certificate authentication to
   PostgreSQL; TLS 1.3-only from the client side.

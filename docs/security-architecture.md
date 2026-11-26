@@ -159,7 +159,7 @@ Known limitations:
   roots instead of replacing them; TLS 1.2 is accepted; no client
   certificate; a database CA change needs a gateway restart; the
   `insecure_transport` opt-out exists. The real TLS test runs only in CI
-  and has not yet run on GitHub Actions.
+  (passed in CI run 45887704517).
 
 Planned:
 - non-root, read-only containers;
