@@ -70,7 +70,7 @@ checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
 name = "api-gateway"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "governor",
@@ -1727,7 +1727,7 @@ dependencies = [
 
 [[package]]
 name = "media-gateway"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "platform-common",
  "str0m",
@@ -2082,7 +2082,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "platform-auth"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2103,7 +2103,7 @@ dependencies = [
 
 [[package]]
 name = "platform-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ipnet",
  "serde",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "platform-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "aws-lc-rs",
@@ -2325,7 +2325,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "radio-benches"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "api-gateway",
  "axum",
@@ -2346,7 +2346,7 @@ dependencies = [
 
 [[package]]
 name = "radio-devstack"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "api-gateway",
  "axum",
@@ -2709,7 +2709,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-agent"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "api-gateway",
  "axum",
@@ -2748,7 +2748,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-audio"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "opus",
  "proptest",
@@ -2761,7 +2761,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-controller"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "platform-common",
  "scanner-telemetry",
@@ -2778,7 +2778,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-recorder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "object_store",
  "platform-common",
@@ -2793,7 +2793,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-telemetry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "platform-common",
  "sds-simulator",
@@ -2806,7 +2806,7 @@ dependencies = [
 
 [[package]]
 name = "scanner-transcription"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "opus",
  "reqwest",
@@ -2853,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "sds-interoperability"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scanner-audio",
  "tokio",
@@ -2864,7 +2864,7 @@ dependencies = [
 
 [[package]]
 name = "sds-simulator"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "serde_json",
@@ -3918,7 +3918,7 @@ checksum = "993ad287eb20e8ba755312801cfe1413e0f25d604075863acaddca10b04c1833"
 
 [[package]]
 name = "uniden-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "quick-xml 0.42.0",
@@ -3927,7 +3927,7 @@ dependencies = [
 
 [[package]]
 name = "uniden-sds"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "sds-simulator",
