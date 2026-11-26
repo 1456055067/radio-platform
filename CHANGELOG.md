@@ -4,6 +4,15 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+### Fixed
+- The stored telemetry snapshot (`GET /api/v1/scanners/{id}/telemetry`)
+  could stay up to 30 s behind the scanner. The gateway writes it at most
+  once per second per scanner and dropped the write for a snapshot that
+  arrived inside that second; with no further change, the next write came
+  only with the agent's 30 s heartbeat. The live stream was not affected.
+  Such snapshots are now written when the second has passed, and on agent
+  disconnect.
+
 ### Changed
 - Dependency updates (supersede Dependabot PRs #1-8 and #10-15):
   jsonwebtoken 11, x509-parser 0.18, tower-http 0.7, tokio-tungstenite

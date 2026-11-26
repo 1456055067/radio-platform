@@ -252,7 +252,11 @@ Browser ── HTTPS (same origin) ──► api-gateway public listener
   an agent going offline.
 - **Freshness.** Agents send telemetry when it changes and as a heartbeat
   every 30 s. The UI therefore treats a snapshot as stale only after 45 s,
-  or when the scanner or agent is offline.
+  or when the scanner or agent is offline. The gateway publishes every
+  snapshot live but writes the stored one (`GET …/telemetry`) at most once
+  per second per scanner; a snapshot that arrives sooner is written when
+  that second has passed, so the stored snapshot lags the live one by at
+  most about a second.
 - **Control.** `useLease` acquires a 300 s lease, renews it every 120 s
   while the page is open, and releases it on navigation or `pagehide`. It
   notices revocation when a scanner view fetched after acquisition no

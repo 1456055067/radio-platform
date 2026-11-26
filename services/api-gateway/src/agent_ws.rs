@@ -26,8 +26,12 @@ use crate::state::AppState;
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 const PING_EVERY: Duration = Duration::from_secs(20);
 const IDLE_LIMIT: Duration = Duration::from_secs(60);
-/// Minimum interval between telemetry writes per scanner.
+/// Minimum interval between telemetry writes per scanner. A snapshot that
+/// arrives sooner is kept and written when the interval has passed, so the
+/// stored snapshot is never older than this behind the latest one received.
 const TELEMETRY_WRITE_INTERVAL: Duration = Duration::from_secs(1);
+/// How often deferred telemetry writes are checked.
+const TELEMETRY_FLUSH_EVERY: Duration = Duration::from_millis(250);
 
 /// Scanner assignments for an agent.
 #[must_use]
@@ -86,6 +90,9 @@ struct Session {
     recording: std::collections::HashSet<ScannerId>,
     transcribing: std::collections::HashSet<ScannerId>,
     last_telemetry_write: HashMap<ScannerId, Instant>,
+    /// Latest snapshot per scanner that arrived inside the write interval
+    /// and is not stored yet (at most one per managed scanner).
+    pending_telemetry: HashMap<ScannerId, platform_common::TelemetrySnapshot>,
 }
 
 impl Session {
@@ -223,15 +230,11 @@ impl Session {
         let Some((tenant, site)) = self.owner(scanner).await else {
             return;
         };
-        let due = self
-            .last_telemetry_write
-            .get(&scanner)
-            .is_none_or(|t| t.elapsed() >= TELEMETRY_WRITE_INTERVAL);
-        if due {
-            self.last_telemetry_write.insert(scanner, Instant::now());
-            if let Err(e) = self.state.store.put_telemetry(scanner, &snapshot).await {
-                debug!(error = %e, "telemetry not stored");
-            }
+        if self.write_due(scanner) {
+            self.pending_telemetry.remove(&scanner);
+            self.store_telemetry(scanner, &snapshot).await;
+        } else {
+            self.pending_telemetry.insert(scanner, snapshot.clone());
         }
         if let Ok(data) = serde_json::to_value(&snapshot) {
             self.state.hub.publish(LiveEvent {
@@ -241,6 +244,44 @@ impl Session {
                 kind: LiveKind::Telemetry,
                 data,
             });
+        }
+    }
+}
+
+impl Session {
+    fn write_due(&self, scanner: ScannerId) -> bool {
+        self.last_telemetry_write
+            .get(&scanner)
+            .is_none_or(|t| t.elapsed() >= TELEMETRY_WRITE_INTERVAL)
+    }
+
+    async fn store_telemetry(
+        &mut self,
+        scanner: ScannerId,
+        snapshot: &platform_common::TelemetrySnapshot,
+    ) {
+        self.last_telemetry_write.insert(scanner, Instant::now());
+        if let Err(e) = self.state.store.put_telemetry(scanner, snapshot).await {
+            debug!(error = %e, "telemetry not stored");
+        }
+    }
+
+    /// Writes deferred snapshots whose write interval has passed, or all of
+    /// them when `all` is set (the session is ending).
+    async fn flush_telemetry(&mut self, all: bool) {
+        if self.pending_telemetry.is_empty() {
+            return;
+        }
+        let ready: Vec<ScannerId> = self
+            .pending_telemetry
+            .keys()
+            .copied()
+            .filter(|id| all || self.write_due(*id))
+            .collect();
+        for id in ready {
+            if let Some(snapshot) = self.pending_telemetry.remove(&id) {
+                self.store_telemetry(id, &snapshot).await;
+            }
         }
     }
 }
@@ -294,6 +335,7 @@ async fn run(state: Arc<AppState>, agent: Agent, mut socket: WebSocket) {
         recording: std::collections::HashSet::new(),
         transcribing: std::collections::HashSet::new(),
         last_telemetry_write: HashMap::new(),
+        pending_telemetry: HashMap::new(),
     };
     s.reload().await;
     for r in reports {
@@ -333,9 +375,12 @@ async fn run(state: Arc<AppState>, agent: Agent, mut socket: WebSocket) {
 
     let mut last_rx = Instant::now();
     let mut ping = tokio::time::interval(PING_EVERY);
+    let mut flush = tokio::time::interval(TELEMETRY_FLUSH_EVERY);
+    flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut nonce: u64 = 0;
     loop {
         tokio::select! {
+            _ = flush.tick() => s.flush_telemetry(false).await,
             out = outbound.recv() => {
                 let Some(msg) = out else {
                     // Replaced by a newer connection.
@@ -418,6 +463,7 @@ async fn run(state: Arc<AppState>, agent: Agent, mut socket: WebSocket) {
             }
         }
     }
+    s.flush_telemetry(true).await;
     state.hub.unregister(&agent_id, reg.conn);
     let _ = state.store.touch_agent(&agent_id, now_utc()).await;
     info!(agent = %agent_id, "agent disconnected");

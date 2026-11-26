@@ -1614,3 +1614,68 @@ async fn live_audio_and_recording() {
     );
     agent.shutdown().await;
 }
+
+/// Regression: the gateway rate-limits telemetry writes to the store. A
+/// snapshot that arrived inside that window used to be published live but
+/// never stored, and the agent sends unchanged snapshots only every heartbeat
+/// (30 s), so `GET /scanners/{id}/telemetry` stayed stale. Two changes in
+/// quick succession must leave the latest one stored.
+#[tokio::test]
+async fn stored_telemetry_keeps_the_latest_change() {
+    let sim = Simulator::start(SimulatorConfig::default()).await.unwrap();
+    let pki = Pki::new();
+    let env = gateway(&pki, sim.addr().port()).await;
+    let admin = env.token("admin", "admin");
+    let (_, site) = env
+        .call(
+            Method::POST,
+            "/api/v1/sites",
+            &admin,
+            Some(json!({ "name": "Lab", "allowed_networks": ["127.0.0.1/32"] })),
+            None,
+        )
+        .await;
+    env.call(
+        Method::POST,
+        "/api/v1/agents",
+        &admin,
+        Some(json!({ "agent_id": "agent-a", "site_id": site["id"] })),
+        None,
+    )
+    .await;
+    let (s, sc) = env
+        .call(Method::POST, "/api/v1/scanners", &admin, Some(json!({ "site_id": site["id"], "agent_id": "agent-a", "name": "Sim", "host": "127.0.0.1", "port": sim.addr().port() })), None)
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{sc}");
+    let url = format!("/api/v1/scanners/{}/telemetry", sc["id"].as_str().unwrap());
+    let agent =
+        scanner_agent::start(agent_config(&pki, env.agent_addr, "agent-a", sim.addr())).unwrap();
+    wait_status(&agent, "agent connected", |s| s.connected).await;
+    let stored_volume = || async {
+        env.call(Method::GET, &url, &admin, None, None).await.1["snapshot"]["volume"].as_u64()
+    };
+    eventually(
+        "initial telemetry stored",
+        Duration::from_secs(10),
+        || async { stored_volume().await == Some(10) },
+    )
+    .await;
+
+    // Let the write window close, then change the volume twice: the first
+    // change is written at once, the second lands inside the window.
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    sim.with_state(|s| s.volume = 3);
+    eventually("first change stored", Duration::from_secs(5), || async {
+        stored_volume().await == Some(3)
+    })
+    .await;
+    sim.with_state(|s| s.volume = 7);
+    eventually(
+        "second change stored (well before the 30 s heartbeat)",
+        Duration::from_secs(5),
+        || async { stored_volume().await == Some(7) },
+    )
+    .await;
+
+    agent.shutdown().await;
+}
