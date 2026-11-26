@@ -65,6 +65,7 @@ cargo test --workspace
 cargo audit
 (cd fuzz && cargo +nightly fuzz build)
 (cd frontend && npm ci && npm audit && npm run typecheck && npm test && npm run build)
+(cd frontend && npm run e2e)   # browser tests; needs `npx playwright install chromium` once
 ```
 
 Frontend rules:

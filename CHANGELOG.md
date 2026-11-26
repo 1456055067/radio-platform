@@ -4,6 +4,10 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+### Added
+- Playwright browser end-to-end tests (`frontend/e2e`, 13 tests) against
+  `radio-devstack`, and an `e2e` CI job that uploads traces on failure.
+
 ## [0.1.0] - 2026-11-26
 
 First release. Tested against `sds-simulator` only; **not verified on

@@ -8,3 +8,6 @@
 /frontend/dist
 *.tsbuildinfo
 .DS_Store
+/frontend/playwright-report
+/frontend/test-results
+/frontend/blob-report

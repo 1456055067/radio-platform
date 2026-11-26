@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // The dev server proxies the API, the live stream and the runtime config to
@@ -28,5 +29,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Playwright browser tests live in e2e/ and run with `npm run e2e`.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 });

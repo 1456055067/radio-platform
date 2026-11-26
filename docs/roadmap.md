@@ -222,8 +222,10 @@ Cloudscape. It has been verified only against simulated scanners
   re-transcription, holds and recording deletion.
 - [ ] Server-side, audited export endpoint (today's export is client-side,
   covering what the user has already loaded).
-- [ ] Browser end-to-end tests in CI (Playwright). Manual browser
-  verification only so far.
+- [x] Browser end-to-end tests in CI (Playwright, Chromium) against
+  `radio-devstack`: roles, navigation, control lease with two users,
+  live WebRTC audio, transcript search and playback, Analytics, audit
+  verification.
 - [ ] Code-splitting: the bundle is 1.5 MB of JS (430 kB gzip), mostly
   Cloudscape.
 
@@ -285,5 +287,5 @@ service (ADR 0010).
 - [ ] Load test of a deployed gateway with PostgreSQL and TLS.
 - [ ] OpenTelemetry tracing; agent-side metrics.
 - [ ] Partitioning of `events` and `transmissions`.
-- [ ] Browser end-to-end tests in CI and console code-splitting (from
+- [ ] Console code-splitting (from
   Phase 4).
