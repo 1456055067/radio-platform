@@ -30,3 +30,27 @@ export async function scannerByName(request: APIRequestContext, name: string): P
 export async function transmissions(request: APIRequestContext, query: string): Promise<Transmission[]> {
   return (await apiGet<Page<Transmission>>(request, 'admin', `/transmissions?${query}`)).items;
 }
+
+/**
+ * Reads the volume straight from the scanner (read-only `get_volume`
+ * command; no lease needed). Telemetry snapshots are not used here: they
+ * are sent only when something changes and can lag a command.
+ */
+export async function scannerVolume(request: APIRequestContext, id: string): Promise<number> {
+  const r = await request.post(`/api/v1/scanners/${id}/commands`, {
+    headers: { authorization: `Bearer ${await token(request, 'admin')}` },
+    data: { command: 'get_volume' },
+  });
+  if (!r.ok()) throw new Error(`get_volume: HTTP ${r.status()}`);
+  return ((await r.json()) as { level: number }).level;
+}
+
+/** Revokes any control lease on the scanner (test cleanup). */
+export async function revokeLease(request: APIRequestContext, name: string): Promise<void> {
+  const s = await scannerByName(request, name);
+  const lease = s.control?.lease_id;
+  if (!lease) return;
+  await request.delete(`/api/v1/scanners/${s.id}/leases/${lease}`, {
+    headers: { authorization: `Bearer ${await token(request, 'admin')}` },
+  });
+}

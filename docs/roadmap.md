@@ -290,4 +290,9 @@ service (ADR 0010).
 - [ ] Load test of a deployed gateway with PostgreSQL and TLS.
 - [ ] OpenTelemetry tracing; agent-side metrics.
 - [ ] Partitioning of `events` and `transmissions`.
+- [ ] Investigate stale telemetry: in one CI run (2026-11-26) a simulated
+  scanner's telemetry snapshot still showed the old volume 15 s after a
+  successful `set_volume`; a direct `get_volume` is unaffected. Not
+  reproduced locally. The browser test now reads the volume from the
+  scanner.
 - [x] Console code-splitting (from Phase 4).

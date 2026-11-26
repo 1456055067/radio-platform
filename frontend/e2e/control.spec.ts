@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { apiGet, scannerByName } from './api';
-import type { TelemetryResponse } from '../src/api/types';
+import { revokeLease, scannerByName, scannerVolume } from './api';
 import { signIn } from './fixtures';
+
+// A failed attempt must not leave a lease behind for the retry or the next test.
+test.afterEach(async ({ request }) => {
+  await revokeLease(request, 'NR Secondary');
+  await revokeLease(request, 'Harbor Main');
+});
 
 test('control lease: an operator sets the volume and a second user is locked out', async ({ page, browser, request }) => {
   const s = await scannerByName(request, 'NR Secondary');
@@ -19,11 +24,9 @@ test('control lease: an operator sets the volume and a second user is locked out
   for (let i = 0; i < 3; i++) await slider.press(target > before ? 'ArrowRight' : 'ArrowLeft');
   await expect(page.getByText(`Volume: ${target}`)).toBeVisible();
 
-  // The change reaches the simulated scanner (read back through the API).
+  // The change reaches the simulated scanner (read back from the scanner).
   await expect
-    .poll(async () => (await apiGet<TelemetryResponse>(request, 'admin', `/scanners/${s.id}/telemetry`)).snapshot?.volume, {
-      timeout: 15_000,
-    })
+    .poll(() => scannerVolume(request, s.id), { timeout: 15_000 })
     .toBe(target);
 
   // A second user (admin, in its own browser context) sees the lease and
@@ -44,9 +47,7 @@ test('control lease: an operator sets the volume and a second user is locked out
   for (let i = 0; i < 3; i++) await slider.press(target > before ? 'ArrowLeft' : 'ArrowRight');
   await expect(page.getByText(`Volume: ${before}`)).toBeVisible();
   await expect
-    .poll(async () => (await apiGet<TelemetryResponse>(request, 'admin', `/scanners/${s.id}/telemetry`)).snapshot?.volume, {
-      timeout: 15_000,
-    })
+    .poll(() => scannerVolume(request, s.id), { timeout: 15_000 })
     .toBe(before);
   await page.getByRole('button', { name: 'Release control' }).click();
   await expect(page.getByText('Nobody has control')).toBeVisible();
