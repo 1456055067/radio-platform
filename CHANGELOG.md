@@ -4,7 +4,47 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+### Changed — BREAKING
+- **Off-loopback PostgreSQL now requires `sslmode=verify-full`.** The
+  gateway refuses to start (and `--check-config` exits 2) when the database
+  URL actually used (`DATABASE_URL`, else `[database] url`) points at a host
+  that is not `localhost`, `127.0.0.0/8` or `::1` and does not set
+  `sslmode=verify-full`. `disable`, `allow`, `prefer`, `require`,
+  `verify-ca` and a missing `sslmode` (the sqlx default `prefer`) are all
+  refused. Loopback and Unix-socket databases are unaffected. `hostaddr` /
+  `PGHOSTADDR` decide the destination, and the check is lexical (no DNS):
+  any other name counts as remote, even one that resolves to loopback.
+  - Opt-out: `[database] insecure_transport = true` in `gateway.toml`, or
+    `database.insecureTransport=true` in the Helm chart. The gateway then
+    starts and logs a warning at every start (also in `--check-config` and
+    Helm NOTES).
+  - **Helm default fails closed:** `database.insecureTransport` defaults to
+    `false`, so an upgrade with an in-cluster plaintext PostgreSQL
+    (for example `postgres://…@pg.db.svc.cluster.local/radio`) will not
+    start. Before upgrading, either enable TLS on PostgreSQL and use
+    `?sslmode=verify-full&sslrootcert=/etc/radio/database-ca/ca.crt` with
+    `secrets.databaseCa`, or set `database.insecureTransport=true`.
+    Run `api-gateway --check-config` with the production `DATABASE_URL` to
+    check in advance.
+  - The URL is now checked strictly: unknown query parameters, duplicate
+    destination/TLS parameters and `sslrootcert=system` are rejected
+    (previously ignored or misread by sqlx).
+  - Use `verify-full`, not `verify-ca`: `sslrootcert` adds to the built-in
+    Mozilla roots rather than replacing them. Rotating the database CA or
+    server certificate needs a gateway restart.
+
 ### Added
+- TLS to PostgreSQL (rustls with AWS-LC; no OpenSSL, no native-tls), with
+  certificate and hostname verification and a private CA through
+  `sslrootcert`. The cluster bus LISTEN connection uses the same TLS
+  settings. New crate: `webpki-roots` (via sqlx).
+- Helm: `database.insecureTransport` (default `false`) and
+  `secrets.databaseCa` (optional Secret with key `ca.crt`, mounted at
+  `/etc/radio/database-ca/ca.crt`).
+- CI: the `postgres` job runs a TLS PostgreSQL with a throw-away test CA
+  (verify-full, wrong CA, name mismatch, TLS on the LISTEN backend); the
+  `helm` job checks that the rendered config refuses an in-cluster
+  plaintext database by default and accepts it with the opt-out.
 - Secure engineering workflow (`.claude/skills/radio-workflow`, nine agents
   in `.claude/agents`): plan, build, QA, parallel security / NIST 800-53 /
   protocol / performance review, fix loop, compliance docs, release gate.
@@ -23,6 +63,10 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 ### Fixed
 - The gateway served `index.html` (200, `text/html`) for a missing file
   under `/assets/`; it now answers 404, so a stale chunk fails cleanly.
+- A TOML syntax error in the gateway or agent configuration no longer
+  echoes the offending source line, which could contain a database URL
+  with its password (SEC-003). Both binaries, at start-up and in
+  `--check-config`, now report only `line L, column C: <message>`.
 
 ## [0.1.0] - 2026-11-26
 

@@ -12,6 +12,7 @@
 | Outage buffering | Agent logs; `pending_events`, `dropped_events` in `AgentStatus` |
 | Operator actions | `GET /api/v1/audit` (filters: actor, action prefix, outcome, resource, time) |
 | Audit integrity | `GET /api/v1/audit/verify`; hourly `audit chain head` log lines |
+| Database transport | Start-up log `database connection uses verified TLS`, `database is on this host`, or the `WARN` `database connection is not verified TLS (insecure_transport = true)…` (fields `host`, `port`, `sslmode`; never the URL) |
 
 Both services log JSON to stdout; set `RUST_LOG` (for example
 `info,api_gateway=debug`).
@@ -74,6 +75,12 @@ Also alert on the log line `audit chain verification failed` and run
   retry deliberately.
 - **Agent upgrades**: gateways accept agent protocols 1–3; upgrade
   gateways first, then agents.
+- **Database transport (ADR 0012):** from this release a gateway whose
+  database is not on loopback refuses to start without
+  `sslmode=verify-full`. Run `api-gateway --check-config` with the
+  production `DATABASE_URL` before rolling out, and see
+  `docs/deployment.md`, "Database TLS", for in-cluster PostgreSQL without
+  TLS.
 - Downgrades across a migration are not supported; restore from backup.
 
 ## Backup and restore
@@ -107,6 +114,33 @@ Restore drill (do it before you need it):
   compare the head with the archived anchors.
 - **Audio lock-up on a scanner:** disable audio for that scanner, power-cycle
   it, and raise `audio.cooldown_secs` on the agent.
+
+## Troubleshooting the database connection
+
+| Symptom | Meaning and action |
+|---|---|
+| Start-up fails (exit 1, log `gateway failed`) or `--check-config` exits 2 with `database <host>:<port> is not on loopback and sslmode=<mode>; off-loopback PostgreSQL requires sslmode=verify-full (set [database] insecure_transport = true to accept an unverified connection)` | The transport policy refused the URL. Add `sslmode=verify-full` (and `sslrootcert` for a private CA), or opt out deliberately (`docs/deployment.md`, "Database TLS"). `host` may read `<name> (hostaddr <ip>)` when `hostaddr` decided the destination |
+| `database url parameter "<key>" is not supported`, `… is given more than once`, `sslrootcert=system is not supported…` | Fix the URL. An unknown key is shown only if it is a known libpq or sqlx name, otherwise as `<unrecognised>`; values are never shown |
+| `database url: sqlx connection options disagree with the transport check` | The URL or a `PG*` variable changed between the check and the connect, or sqlx parses it differently. The gateway refuses to connect; check `PGHOST`, `PGHOSTADDR`, `PGSSLMODE` and `PGSSLROOTCERT` in the process environment |
+| `storage backend error: pool timed out while waiting for an open connection`, after about 5 s | No connection could be opened within the pool's 5 s acquire timeout. This usually means a **TLS or network failure**: the server is unreachable or refuses the connection, TLS is not enabled on the server, the certificate does not chain to the built-in roots or `sslrootcert`, or its name does not match the host. Check reachability, the server's `ssl` setting and the certificate. Certificate errors may also appear directly (`UnknownIssuer`, `not valid for name`) |
+| Log `cluster bus connection lost; reconnecting (messages may be missed)` repeating every few seconds, with `/readyz` failing | A permanent connection failure, often an expired server certificate or a CA change. The bus retries indefinitely at a fixed interval and logs each attempt; fix the certificate, then restart |
+
+**Certificate and CA rotation.** The gateway reads the database CA
+(`sslrootcert`) once per process and caches the TLS configuration. A
+server certificate renewed under the **same** CA should need no gateway
+action, because new connections verify it against the cached roots (not
+tested).
+Moving to a **new** CA (or changing the `sslrootcert` file) needs a gateway
+restart; do a rolling restart after the new CA file is in place. During a
+CA migration, put both the old and the new CA in the `sslrootcert` file.
+
+**Latency after idle periods.** The pool opens connections on demand and
+closes idle ones after sqlx's idle timeout (10 minutes). After an idle
+period, the first requests open a new connection, which now includes a
+TLS handshake (one extra round trip plus a few milliseconds of CPU). Over a
+high-latency link to a managed database the first requests after a quiet
+period are therefore slower. Pool warm-up and handshake cost have not been
+measured.
 
 ## Capacity
 

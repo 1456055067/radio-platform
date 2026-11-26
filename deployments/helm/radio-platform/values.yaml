@@ -23,9 +23,16 @@ secrets:
   # detected.
   agentCa: radio-agent-ca
   agentCrl: true
-  # Secret with key DATABASE_URL (postgres://…). Use TLS to the database
-  # (sslmode=verify-full) outside the cluster network.
+  # Secret with key DATABASE_URL. The gateway refuses to start when the
+  # database is not on loopback unless the URL requires verified TLS:
+  #   postgres://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/etc/radio/database-ca/ca.crt
+  # (sslrootcert is needed only for a private CA, see databaseCa; it adds to
+  # the built-in public roots). verify-ca, require and prefer are refused;
+  # see database.insecureTransport for in-cluster plaintext PostgreSQL.
   database: radio-database
+  # Optional: Secret with key `ca.crt`, the CA that issued the PostgreSQL
+  # server certificate, mounted at /etc/radio/database-ca/ca.crt.
+  databaseCa: ""
   # Optional: Secret whose keys become environment variables (AWS_* for
   # S3 recording, the transcription API key, …).
   extraEnv: ""
@@ -100,6 +107,12 @@ ui:
 
 database:
   maxConnections: 10
+  # Accept a database connection that is not verified TLS
+  # (sslmode=verify-full) to a non-loopback host, for example an in-cluster
+  # PostgreSQL without TLS. Credentials, audit records and transcripts then
+  # cross the network unprotected. Off by default: the gateway refuses to
+  # start; it warns at every start when this is true.
+  insecureTransport: false
 
 resources:
   requests: { cpu: 100m, memory: 128Mi }

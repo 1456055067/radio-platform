@@ -22,7 +22,8 @@
         "agentCa": { "type": "string", "minLength": 1 },
         "agentCrl": { "type": "boolean" },
         "database": { "type": "string", "minLength": 1 },
-        "extraEnv": { "type": "string" }
+        "extraEnv": { "type": "string" },
+        "databaseCa": { "type": "string" }
       }
     },
     "service": { "type": "object" },
@@ -49,7 +50,10 @@
     "ui": { "type": "object" },
     "database": {
       "type": "object",
-      "properties": { "maxConnections": { "type": "integer", "minimum": 1 } }
+      "properties": {
+        "maxConnections": { "type": "integer", "minimum": 1 },
+        "insecureTransport": { "type": "boolean" }
+      }
     }
   }
 }

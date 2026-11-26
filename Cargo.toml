@@ -61,7 +61,7 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "j
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "logging"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "time", "json", "migrate", "macros", "ipnet"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "time", "json", "migrate", "macros", "ipnet", "tls-rustls-aws-lc-rs"] }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "logging"] }
 tokio-tungstenite = { version = "0.27", default-features = false, features = ["handshake"] }
@@ -79,6 +79,7 @@ tokio = { version = "1", default-features = false }
 tokio-util = { version = "0.7", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+url = "2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

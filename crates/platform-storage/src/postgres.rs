@@ -19,6 +19,7 @@ use uuid::Uuid;
 use crate::memory::parse_tx_cursor;
 use crate::model::*;
 use crate::page::{Page, PageRequest};
+use crate::pg_transport::{self, CheckedTarget};
 use crate::store::{Store, StoreError, StoreResult, validate_name};
 
 /// Embedded migrations from the workspace `migrations/` directory.
@@ -64,6 +65,10 @@ impl PgStore {
 
     /// Connects with a bounded pool.
     ///
+    /// This does **not** apply the transport policy in
+    /// [`crate::pg_transport`]; it is for tests and the development stack.
+    /// Production code uses [`PgStore::connect_target`].
+    ///
     /// # Errors
     /// Returns an error if the database is unreachable.
     pub async fn connect(url: &str, max_connections: u32) -> StoreResult<Self> {
@@ -71,6 +76,43 @@ impl PgStore {
             .max_connections(max_connections.max(1))
             .acquire_timeout(Duration::from_secs(5))
             .connect(url)
+            .await
+            .map_err(backend)?;
+        Ok(Self { pool })
+    }
+
+    /// Connects with a bounded pool to a URL that has passed the transport
+    /// policy. `checked` comes only from [`PgTarget::check`] on the result of
+    /// [`PgTarget::parse`] for the same `url`, so the policy has accepted the
+    /// target before this is reachable. The URL is parsed again with the
+    /// process environment and compared with the checked target and with
+    /// sqlx's own options, so the pool (and the cluster bus `LISTEN`
+    /// connection, which comes from it) connects exactly where the policy
+    /// looked.
+    ///
+    /// [`PgTarget::check`]: crate::PgTarget::check
+    /// [`PgTarget::parse`]: crate::PgTarget::parse
+    ///
+    /// # Errors
+    /// [`StoreError::Invalid`] if the URL no longer matches the checked
+    /// target or sqlx rejects it (the message never contains the URL);
+    /// [`StoreError::Backend`] if the database is unreachable or the TLS
+    /// handshake or certificate verification fails.
+    pub async fn connect_target(
+        url: &str,
+        checked: &CheckedTarget,
+        max_connections: u32,
+    ) -> StoreResult<Self> {
+        // NIST 800-53 Rev5: SC-8 (only a policy-accepted target, re-checked against URL and sqlx)
+        // POAM: sqlx builds and caches the TLS connector (CA roots) once per
+        // process, so rotating the database CA or server certificate to a new
+        // CA needs a gateway restart.
+        let opts = pg_transport::connect_options(url, checked.target())
+            .map_err(|e| StoreError::Invalid(e.to_string()))?;
+        let pool = PgPoolOptions::new()
+            .max_connections(max_connections.max(1))
+            .acquire_timeout(Duration::from_secs(5))
+            .connect_with(opts)
             .await
             .map_err(backend)?;
         Ok(Self { pool })

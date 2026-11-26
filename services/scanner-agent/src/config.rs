@@ -101,6 +101,28 @@ impl From<&LocalScanner> for ScannerAssignment {
     }
 }
 
+/// Parses a configuration file. On error, returns only the parser's message
+/// and the `line:column` of the problem: never the offending source line,
+/// which may hold a secret.
+///
+/// # Errors
+/// The text is not valid TOML or does not match the configuration schema.
+pub fn parse_toml<T: serde::de::DeserializeOwned>(src: &str) -> Result<T, String> {
+    // NIST 800-53 Rev5: SI-11 (configuration errors do not echo the source line)
+    // POAM: a serde type or variant mismatch can still name the mis-typed value
+    toml::from_str(src).map_err(|e| {
+        let message = e.message().trim_end();
+        match e.span().and_then(|s| src.get(..s.start)) {
+            Some(before) => {
+                let line = before.matches('\n').count() + 1;
+                let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+                format!("line {line}, column {column}: {message}")
+            }
+            None => message.to_owned(),
+        }
+    })
+}
+
 /// Complete agent configuration.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -152,5 +174,15 @@ mod tests {
         // A misplaced key is an error, not silently ignored.
         let misplaced = "[gateway]\nurl='wss://x/agent/v1'\nca='a'\ncert='b'\nkey='c'\n[network]\nallowed_networks=[]\n[telemetry]\nmax_scanners = 3\n";
         assert!(toml::from_str::<AgentConfig>(misplaced).is_err());
+    }
+
+    #[test]
+    fn parse_errors_do_not_echo_the_source_line() {
+        let src = "[gateway]\nurl = \"wss://x/agent/v1\"\nkey = \"Sup3rS3cret\"x\"\n";
+        let e = parse_toml::<AgentConfig>(src)
+            .err()
+            .unwrap_or_else(|| panic!("malformed"));
+        assert!(!e.contains("Sup3rS3cret"), "{e}");
+        assert!(e.starts_with("line 3, column "), "{e}");
     }
 }

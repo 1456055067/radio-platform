@@ -5,6 +5,12 @@ radio-platform {{ .Chart.AppVersion }} installed as {{ include "rp.fullname" . }
 {{- if .Values.metrics.enabled }}
 - Metrics: Service {{ include "rp.fullname" . }}-metrics port {{ .Values.metrics.port }} /metrics.
 {{- end }}
+{{- if .Values.database.insecureTransport }}
+
+WARNING: database.insecureTransport is true. The gateway accepts a database
+connection that is not verified TLS (sslmode=verify-full); credentials, audit
+records and transcripts can be read or altered on the network.
+{{- end }}
 
 Audio, recording, transcription and retention are off unless configured.
 Verify the audit chain after installation: GET /api/v1/audit/verify.
