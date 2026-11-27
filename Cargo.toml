@@ -55,7 +55,7 @@ governor = "0.10"
 hyper = { version = "1", features = ["server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["server-auto", "server-graceful", "tokio", "service"] }
 ipnet = { version = "2", features = ["serde"] }
-jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs", "use_pem"] }
+jsonwebtoken = { version = "12", default-features = false, features = ["aws_lc_rs", "use_pem"] }
 rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "http2"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "logging"] }
