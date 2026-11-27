@@ -78,6 +78,10 @@ python3 -m venv .venv-docs && .venv-docs/bin/pip install -r requirements-docs.tx
 .venv-docs/bin/zensical serve      # http://localhost:8000
 ```
 
+CI (`.github/workflows/docs.yml`) builds and link-checks the site on pull
+requests and publishes it to <https://1456055067.github.io/radio-platform/>
+from `main`.
+
 ## Protocol knowledge
 
 [docs/protocol-compliance.md](docs/protocol-compliance.md) is the

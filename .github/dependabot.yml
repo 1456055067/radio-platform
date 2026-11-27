@@ -39,6 +39,14 @@ updates:
     cooldown:
       default-days: 14
 
+  # Zensical, pinned in requirements-docs.txt for the docs workflow.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+
   - package-ecosystem: docker
     directory: /deployments/container
     schedule:
