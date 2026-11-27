@@ -304,9 +304,12 @@ service (ADR 0010).
 - [ ] Load test of a deployed gateway with PostgreSQL and TLS.
 - [ ] OpenTelemetry tracing; agent-side metrics.
 - [ ] Partitioning of `events` and `transmissions`.
-- [ ] Investigate stale telemetry: in one CI run (2026-11-26) a simulated
-  scanner's telemetry snapshot still showed the old volume 15 s after a
-  successful `set_volume`; a direct `get_volume` is unaffected. Not
-  reproduced locally. The browser test now reads the volume from the
-  scanner.
+- [x] Stale stored telemetry (seen once in CI, 2026-11-26): the gateway
+  wrote at most one snapshot per second per scanner and dropped the store
+  write for a snapshot inside that second, so with no further change
+  `GET …/telemetry` kept the older value until the 30 s heartbeat. Deferred
+  writes now store it when the second has passed
+  (`services/api-gateway/src/agent_ws.rs` → `Session::flush_telemetry`);
+  regression test `stored_telemetry_keeps_the_latest_change`
+  (`services/scanner-agent/tests/e2e.rs`).
 - [x] Console code-splitting (from Phase 4).
