@@ -1,0 +1,150 @@
+# Documentation site for radio-platform, built with Zensical.
+#
+#   python3 -m venv .venv-docs && .venv-docs/bin/pip install -r requirements-docs.txt
+#   .venv-docs/bin/zensical serve     # http://127.0.0.1:8000
+#   .venv-docs/bin/zensical build     # writes site/
+#
+# CI (.github/workflows/docs.yml) builds and link-checks it on pull
+# requests and publishes it to GitHub Pages from main.
+#
+# Pages live in docs/. The engineering documents that already lived there
+# (architecture, deployment, protocol compliance, ADRs, ...) are included
+# as-is; keep editing them in place.
+
+[project]
+site_name = "Radio Platform"
+site_description = "Open-source management of Uniden SDS200 scanners over their native Ethernet protocols."
+site_url = "https://1456055067.github.io/radio-platform/"
+repo_url = "https://github.com/1456055067/radio-platform"
+repo_name = "radio-platform"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+copyright = "Licensed under the Apache License 2.0"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Overview" = [
+    "overview/index.md",
+    { "How it works" = "overview/how-it-works.md" },
+    { "Using the console" = "overview/using-the-console.md" },
+    { "Safety, privacy and the law" = "overview/safety-and-privacy.md" },
+    { "Project status" = "overview/project-status.md" },
+    { "Glossary" = "overview/glossary.md" },
+  ] },
+  { "Admin guide" = [
+    "admin/index.md",
+    { "Plan a deployment" = "admin/planning.md" },
+    { "Install" = "admin/installation.md" },
+    { "Configure" = "admin/configuration.md" },
+    { "Users, roles and control" = "admin/access-control.md" },
+    { "Audio, recording and transcripts" = "admin/audio-and-recording.md" },
+    { "Run and maintain" = "admin/operations-overview.md" },
+    { "Detailed references" = [
+      { "Deployment" = "deployment.md" },
+      { "Operations" = "operations.md" },
+      { "API reference" = "api-reference.md" },
+      { "Hardware testing" = "hardware-testing.md" },
+      { "Hardware sign-off" = "hardware-signoff.md" },
+    ] },
+  ] },
+  { "Architecture" = [
+    "architecture-guide/index.md",
+    { "System architecture" = "architecture.md" },
+    { "Security architecture" = "security-architecture.md" },
+    { "Threat model" = "threat-model.md" },
+    { "Database design" = "database-design.md" },
+    { "Protocol reference (SDK)" = "protocol-reference.md" },
+    { "Protocol compliance" = "protocol-compliance.md" },
+    { "NIST 800-53 controls" = "nist-800-53-controls.md" },
+    { "Benchmarks" = "benchmarks.md" },
+    { "Roadmap" = "roadmap.md" },
+    { "Decision records" = [
+      "decisions/index.md",
+      { "0001 Sans-I/O protocol crate" = "decisions/0001-sans-io-protocol-crate.md" },
+      { "0002 Serialized actor per scanner" = "decisions/0002-serialized-actor-per-scanner.md" },
+      { "0003 Provenance tracking" = "decisions/0003-provenance-tracking.md" },
+      { "0004 Agent dials out over mTLS" = "decisions/0004-agent-dials-out-over-mtls-websocket.md" },
+      { "0005 Agent enforces network policy" = "decisions/0005-agent-enforces-network-policy.md" },
+      { "0006 Leases in gateway memory" = "decisions/0006-leases-in-gateway-memory.md" },
+      { "0007 Storage trait and static SQL" = "decisions/0007-storage-trait-and-static-sql.md" },
+      { "0008 Shared leases and cluster bus" = "decisions/0008-shared-leases-and-cluster-bus.md" },
+      { "0009 Audio pipeline" = "decisions/0009-audio-pipeline.md" },
+      { "0010 Transcription, search, retention" = "decisions/0010-transcription-search-retention.md" },
+      { "0011 Tamper-evident audit" = "decisions/0011-tamper-evident-audit.md" },
+      { "0012 PostgreSQL transport policy" = "decisions/0012-postgres-transport-policy.md" },
+    ] },
+  ] },
+  { "Uniden reference" = [
+    "reference/uniden/index.md",
+    { "R6 SDS100/SDS200 Remote Command Spec v1.02" = "reference/uniden/r6-sds-remote-command-spec-v1-02.md" },
+    { "R1 BCDx36HP Remote Command Spec v1.03" = "reference/uniden/r1-bcdx36hp-remote-command-spec.md" },
+    { "R2 SDS100 Remote Command Spec" = "reference/uniden/r2-sds100-remote-command-spec.md" },
+    { "R3 SDS Remote Command Spec v2.00" = "reference/uniden/r3-sds-remote-command-spec-v2.md" },
+    { "R4 SDS200 Virtual Serial on Network and RTSP" = "reference/uniden/r4-sds200-virtual-serial-and-rtsp.md" },
+    { "R5 SDS200 firmware release notes" = "reference/uniden/r5-sds200-firmware-release-notes.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "content.code.annotate",
+  "content.tabs.link",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.betterem = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true

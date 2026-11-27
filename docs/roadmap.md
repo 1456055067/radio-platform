@@ -6,9 +6,14 @@ that need verification on a real SDS200 before they count as complete.
 
 ## Phase 1 — Protocol Foundation (in progress)
 
-- [x] Research official Uniden specifications. Obtained BCDx36HP v1.03.
-  The SDS100 spec, V2.00 spec, *Virtual Serial on Network* spec and release
-  notes were **not** obtained; see `protocol-compliance.md` R2–R5.
+- [x] Research official Uniden specifications. Obtained BCDx36HP v1.03
+  (R1); on 2026-11-27 also obtained the SDS100/SDS200 Remote Command
+  Specification V1.02 (R6), the *Virtual Serial on Network* specification
+  and the RTSP notes (R4). The V2.00 spec (R3) was **not** found; release
+  notes (R5) are located but not reviewed. See `protocol-compliance.md`.
+- [ ] Act on R4/R6: update `Provenance` (it still names only R1), read
+  `U_Id` from channel elements, decide on sending RTSP `OPTIONS` first and
+  using the `Content-Base` URL, and type `GST`.
 - [x] Research existing open-source SDS200 implementations (C1–C7).
 - [x] Initialise the Rust workspace (edition 2024, workspace lints,
   `unsafe` forbidden).

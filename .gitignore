@@ -13,3 +13,7 @@
 /frontend/blob-report
 /.claude/worktrees
 /.claude/settings.local.json
+
+# Documentation site (zensical)
+/site
+/.venv-docs
