@@ -167,5 +167,51 @@ fn api(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, protocol, audio, audit, api);
+/// The security-log throttle on the rejection path, with no subscriber
+/// installed (the decision cost only; writing is the subscriber's cost).
+fn security(c: &mut Criterion) {
+    use api_gateway::security_log::{Listener, Reason, SecurityEvent, SecurityLog};
+    use std::net::{IpAddr, Ipv4Addr};
+    let ev = |ip: IpAddr| SecurityEvent {
+        reason: Reason::Malformed,
+        claim: None,
+        status: 401,
+        ip: Some(ip),
+        method: &axum::http::Method::GET,
+        route: "/api/v1/scanners",
+        listener: Listener::Public,
+        subject: None,
+        tenant: None,
+        agent: None,
+    };
+
+    // One source past its per-source limit: every event is suppressed.
+    let log = SecurityLog::new();
+    let one = ev(IpAddr::V4(Ipv4Addr::new(198, 51, 100, 1)));
+    for _ in 0..20 {
+        log.record(&one);
+    }
+    c.bench_function("security/record_one_source_suppressed", |b| {
+        b.iter(|| log.record(black_box(&one)));
+    });
+
+    // 10 000 sources cycling through a full 4096-slot table: most events are
+    // untracked, the replica-wide budget is spent.
+    let log = SecurityLog::new();
+    let sources: Vec<IpAddr> = (0..10_000u32)
+        .map(|i| IpAddr::V4(Ipv4Addr::from(0x0a00_0000 + i)))
+        .collect();
+    for ip in &sources {
+        log.record(&ev(*ip));
+    }
+    let mut i = 0usize;
+    c.bench_function("security/record_many_sources_full_table", |b| {
+        b.iter(|| {
+            i = (i + 1) % sources.len();
+            log.record(black_box(&ev(sources[i])));
+        });
+    });
+}
+
+criterion_group!(benches, protocol, audio, audit, api, security);
 criterion_main!(benches);

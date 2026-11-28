@@ -4,6 +4,38 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 
 ## [Unreleased]
 
+### Added
+- **Security event log** (ADR 0013, NIST 800-53 AU-2/AU-3/AU-12). The
+  gateway writes one structured JSON line per authentication failure or
+  rate-limit refusal on the `tracing` target `security`, on stdout beside
+  the general log: 401s on the REST/WebSocket API (`missing`, `malformed`,
+  `expired`, `invalid`, `claim` with the claim name), 429s
+  (`rate_limited_ip`, `rate_limited_principal`), `expired` at
+  authorization, and agent-listener refusals (`agent_identity`,
+  `agent_unregistered`). Lines carry the source IP (same trusted-proxy
+  derivation as the rate limiter), method, route template and listener,
+  plus the verified subject/tenant or agent id where one exists. Tokens,
+  unverified claims, headers, query strings, cookies and raw paths are
+  never written. Identity-provider outages (503) are not security events.
+  - **Always on:** written at `WARN` whatever `RUST_LOG` says (`off`,
+    `error` and `security=off` do not silence it).
+  - **Throttled per source** (IPv4 address, IPv6 /64): at most 10 lines
+    per source and 300 unauthenticated plus 60 verified-identity lines
+    per replica per 60 s; the rest are counted and reported in
+    `event=suppressed` summary lines (`scope=source|global`).
+  - The field schema, reason values, example lines and SIEM guidance are
+    in `docs/operations.md` ("Security event log (SIEM)"). The platform
+    keeps no copy: collect it into your SIEM and set retention and
+    integrity there. These events are not in the tenant audit log and
+    `/audit/verify` does not cover them.
+- Metrics (on the metrics listener):
+  `radio_security_events_total{reason}` (counter, every reason always
+  rendered, counts suppressed events too),
+  `radio_security_log_suppressed_total` (counter) and
+  `radio_security_log_tracked_sources` (gauge).
+- No configuration key, REST API, agent wire protocol, migration or audit
+  action changed for this; agents and the Helm chart need no change.
+
 ### Fixed
 - The stored telemetry snapshot (`GET /api/v1/scanners/{id}/telemetry`)
   could stay up to 30 s behind the scanner. The gateway writes it at most
@@ -24,6 +56,18 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 - Dependabot no longer proposes `@types/node` majors beyond the Node
   version CI runs, or majors from the `/fuzz` entry (they edited the root
   `Cargo.toml` without its lockfile and broke the `--locked` image build).
+- **Gateway log format (SIEM parsers):** general-log timestamps now come
+  from an explicit UTC RFC 3339 timer (`tracing-subscriber` feature
+  `time`, crate already in the tree). They are still UTC with a `Z`
+  suffix, but the number of fractional-second digits can vary (before:
+  always 6). Parsers with a fixed-width timestamp pattern must accept
+  variable fractional digits.
+- **Gateway log message removed:** the `WARN` line
+  `connection from unregistered agent refused` is replaced by the
+  security event `reason=agent_unregistered` (target `security`, field
+  `agent`). Update any alert keyed on the old message. A storage failure
+  during the agent lookup is now logged at `ERROR` (`storage failure`);
+  the response is still 403.
 
 ### Security
 - OIDC: a token whose `iss` is not a single string, or whose `aud` is not
@@ -33,6 +77,15 @@ All notable changes are recorded here. The format follows Keep a Changelog.
 - Tests pin the JWT registered-claim checks, the agent identity taken
   from a client certificate (x509-parser 0.18 skips malformed SAN entries
   instead of failing the extension), and a 404 for `/assets/<file>/`.
+- Failed token verification and rate-limit refusals were counted only in
+  metrics; they are now recorded in the security event log (see Added;
+  closes POA&M item 4 in part: AU-2 stays Partial). Residuals: the
+  throttle is per replica; rustls handshake/CRL failures are not logged;
+  the per-IP limiter is keyed by full IPv6 address; verified events
+  share their source's slot behind NAT; one verified principal can use up
+  the 60-line verified budget (lines still counted in metrics and
+  summaries). Do not run production gateways at `RUST_LOG=debug`: the
+  general log's request span then carries the raw URI and query string.
 
 ## [0.2.0] - 2026-11-26
 

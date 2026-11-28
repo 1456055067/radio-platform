@@ -305,6 +305,8 @@ async fn run(cfg: GatewayConfig) -> Result<(), String> {
                         state.leases.purge_expired(platform_common::now_utc()).await;
                         state.limiter.retain_recent();
                         state.ip_limiter.retain_recent();
+                        // Summaries for sources that went quiet; frees their slots.
+                        state.security.flush();
                         if let Some(b) = &bus {
                             let _ = b.purge_spill(std::time::Duration::from_secs(300)).await;
                         }
@@ -351,14 +353,22 @@ fn check_config(path: &str, cfg: &GatewayConfig) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Two layers: the general log (JSON, `RUST_LOG`, default `info`) without
+/// security events, and the security log (see `api_gateway::security_log`),
+/// always on at `WARN` and written without span context, so the request
+/// span's raw URI never reaches a security event.
+fn init_tracing() {
+    use tracing_subscriber::util::SubscriberInitExt as _;
+
+    let env =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    // NIST 800-53 Rev5: AU-12 (the security layer is independent of RUST_LOG; see security_log::subscriber)
+    api_gateway::security_log::subscriber(env, std::io::stdout, std::io::stdout).init();
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .json()
-        .init();
+    init_tracing();
     let args: Vec<String> = std::env::args().collect();
     let (check, path) = match args.get(1).map(String::as_str) {
         Some("--check-config") => (

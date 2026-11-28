@@ -21,6 +21,7 @@ pub mod media;
 pub mod metrics;
 pub mod openapi;
 pub mod retention;
+pub mod security_log;
 pub mod serve;
 pub mod state;
 pub mod tls;

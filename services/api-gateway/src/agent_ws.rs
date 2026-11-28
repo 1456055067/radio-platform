@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use axum::extract::ws::{CloseFrame, Message, Utf8Bytes, WebSocket, WebSocketUpgrade};
 use axum::extract::{Extension, State};
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 
 use platform_common::wire::{
@@ -14,13 +14,15 @@ use platform_common::wire::{
     ScannerAssignment,
 };
 use platform_common::{AgentId, ScannerEvent, ScannerId, SiteId, TenantId, now_utc};
+use platform_storage::StoreError;
 use platform_storage::model::{Agent, NewEvent, ScannerRecord};
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
 
 use crate::error::ApiError;
 use crate::hub::{LiveEvent, LiveKind};
-use crate::serve::PeerAgent;
+use crate::security_log::{Listener, Reason, SecurityEvent};
+use crate::serve::{ClientAddr, PeerAgent};
 use crate::state::AppState;
 
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -59,9 +61,28 @@ pub fn assignments(records: &[ScannerRecord]) -> Vec<ScannerAssignment> {
 pub async fn agent_socket(
     State(state): State<Arc<AppState>>,
     Extension(peer): Extension<PeerAgent>,
+    client: Option<Extension<ClientAddr>>,
+    method: Method,
     ws: WebSocketUpgrade,
 ) -> Response {
+    // The agent listener trusts no proxy: the source is the TCP peer.
+    let reject = |reason: Reason, status: StatusCode, agent: Option<&AgentId>| {
+        state.security.record(&SecurityEvent {
+            reason,
+            claim: None,
+            status: status.as_u16(),
+            ip: client.as_ref().map(|c| c.0.0.ip()),
+            method: &method,
+            route: platform_common::wire::AGENT_PATH,
+            listener: Listener::Agent,
+            subject: None,
+            tenant: None,
+            agent,
+        });
+    };
     let Some(agent_id) = peer.0 else {
+        // NIST 800-53 Rev5: AU-2, AU-12 (CA-verified client certificate without a usable agent identity)
+        reject(Reason::AgentIdentity, StatusCode::UNAUTHORIZED, None);
         return ApiError::new(
             StatusCode::UNAUTHORIZED,
             "client certificate identity required",
@@ -70,8 +91,18 @@ pub async fn agent_socket(
     };
     let agent = match state.store.get_agent(&agent_id).await {
         Ok(a) => a,
-        Err(_) => {
-            warn!(agent = %agent_id, "connection from unregistered agent refused");
+        Err(StoreError::NotFound) => {
+            // NIST 800-53 Rev5: AU-2, AU-12 (connection from an agent that is not registered; the id comes from the CA-verified certificate)
+            reject(
+                Reason::AgentUnregistered,
+                StatusCode::FORBIDDEN,
+                Some(&agent_id),
+            );
+            return ApiError::forbidden("agent is not registered").into_response();
+        }
+        Err(e) => {
+            // POAM: a storage failure during the agent lookup is still answered with 403 "not registered" (503 would be more accurate but changes agent-visible behaviour).
+            tracing::error!(error = %e, agent = %agent_id, "storage failure");
             return ApiError::forbidden("agent is not registered").into_response();
         }
     };

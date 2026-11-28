@@ -100,6 +100,7 @@ flowchart LR
 | Tamper-evident audit log: per-tenant SHA-256 hash chain (AWS-LC), atomic head update, append-only trigger, `/audit/verify`, hourly head logging for external anchoring | ADR 0011, `audit_chain`, migration 0005 |
 | Audited, filterable audit export (needs `export` too) with hashes for offline verification; CSV formula neutralisation | `api::audit` |
 | Metrics on a separate unauthenticated listener, warned when not on loopback; labels use route templates, never identifiers | `metrics.rs`, `tests/metrics.rs` |
+| Security event log (ADR 0013): every 401, 429 and agent-listener refusal is a structured JSON event on the `tracing` target `security`, separate from the tenant audit chain (no verified tenant; never the tenant claimed by an unverified token; no database write from unauthenticated traffic). Fields are enumerated values, the source IP (`client_ip`, trusted proxies only), method, route template and only verified identities; never the token, unverified claims, headers, raw path or query; no span context. Always on regardless of `RUST_LOG`. Throttled per source (IPv4 or IPv6 /64): 10 lines per source, 300 unauthenticated plus 60 verified-identity lines per replica per 60 s, 4096-source table; the rest counted and summarised; `radio_security_events_total{reason}`, `radio_security_log_suppressed_total`, `radio_security_log_tracked_sources` | `api_gateway::security_log` (`SecurityLog`, `layer`, `subscriber`), `state.rs`, `agent_ws.rs`, `tests/security_log.rs` |
 | Graceful shutdown on SIGTERM (Kubernetes, systemd) | both `main.rs` |
 | `--check-config` and start-up validation of listener, TLS, cluster, transcription and retention settings | `GatewayConfig::validate` |
 | Distroless non-root images; SBOM, provenance and cosign signatures; native multi-arch builds | `deployments/container`, `images.yml` |
@@ -152,6 +153,19 @@ Notes:
 
 Known limitations:
 - Audit-write failures are logged but do not block the action.
+- Security event log (ADR 0013, POA&M item 4): it is stdout only, outside
+  the hash chain, with integrity and retention left to the deployer's
+  collector. The throttle is per replica (R replicas: up to R × 10 lines
+  per source per window), so aggregate in the SIEM. A flood can spend the
+  line budget and hide individual lines (log blinding; counts survive in
+  summaries and metrics). Verified-identity events share their source's
+  slot, so many users behind one NAT can suppress one another's lines.
+  One verified principal can use up the 60-line verified budget for a
+  window (SEC-005). The per-IP rate limiter is keyed by the full IPv6
+  address. rustls handshake and CRL failures are not logged by the
+  application. The verified `subject` in the log is personal data.
+  Do not run production at `RUST_LOG=debug`: the general log's request
+  span carries the raw URI and query.
 - No OCSP; revocation is CRL-only and only for agent certificates.
 - The cluster bus is unauthenticated within the database trust boundary
   (ADR 0008).

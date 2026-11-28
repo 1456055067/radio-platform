@@ -73,6 +73,7 @@ nav = [
       { "0010 Transcription, search, retention" = "decisions/0010-transcription-search-retention.md" },
       { "0011 Tamper-evident audit" = "decisions/0011-tamper-evident-audit.md" },
       { "0012 PostgreSQL transport policy" = "decisions/0012-postgres-transport-policy.md" },
+      { "0013 Security event log" = "decisions/0013-security-event-log.md" },
     ] },
   ] },
   { "Uniden reference" = [

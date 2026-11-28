@@ -41,6 +41,10 @@ the conventions.
   - per client IP, **before** authentication
     (`limits.requests_per_minute_per_ip`). Health probes are exempt.
     `X-Forwarded-For` is honoured only from `limits.trusted_proxies`.
+- Every 401 and 429 (and every refusal on the agent listener) is also
+  written to the gateway's security event log, throttled per source, and
+  counted in `radio_security_events_total{reason}` (ADR 0013; schema in
+  `docs/operations.md`, "Security event log (SIEM)").
 
 ## Control leases
 
@@ -106,7 +110,7 @@ holder.
 | PUT/DELETE | `/api/v1/groups/{id}/members/{scanner_id}` | scanner_manage at the scanner's site | `PUT` is idempotent |
 | POST | `/api/v1/sites/{id}/discover` | scanner_manage at the site | Body `{"agent_id", "networks"?, "port"?}`. Returns `{"candidates": [{host, port, model}], "skipped_enrolled"}`. Networks must be inside the site's (and the agent's) authorized networks, at most 1024 addresses (**422** or **400**). **501** for agents older than protocol v2. Nothing is enrolled automatically |
 | GET | `/healthz`, `/readyz` | none | Liveness; readiness (database ping) |
-| GET | `/metrics` | none, **separate listener** | Prometheus metrics on `[metrics] bind` only, never on the public listener |
+| GET | `/metrics` | none, **separate listener** | Prometheus metrics on `[metrics] bind` only, never on the public listener. Metric list in `docs/operations.md`, "Metrics", including `radio_security_events_total{reason}`, `radio_security_log_suppressed_total` and `radio_security_log_tracked_sources` |
 
 Every route's required permissions are pinned by
 `services/api-gateway/tests/authz_matrix.rs`, which fails when a route is

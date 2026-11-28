@@ -5,9 +5,9 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::extract::FromRequestParts;
-use axum::http::StatusCode;
+use axum::extract::{FromRequestParts, MatchedPath};
 use axum::http::request::Parts;
+use axum::http::{Method, StatusCode};
 use governor::{DefaultKeyedRateLimiter, Quota};
 use platform_auth::{OidcVerifier, Permission, Principal, Resource};
 use platform_common::now_utc;
@@ -18,6 +18,7 @@ use scanner_controller::LeasePolicy;
 use crate::config::LimitsConfig;
 use crate::error::ApiError;
 use crate::hub::AgentHub;
+use crate::security_log::{Listener, Reason, SecurityEvent, SecurityLog};
 use crate::serve::ClientAddr;
 
 /// Application state shared by all handlers.
@@ -34,6 +35,7 @@ pub struct AppState {
     /// Per-subject rate limiter.
     pub limiter: DefaultKeyedRateLimiter<String>,
     /// Per-client-IP rate limiter (applied before authentication).
+    // POAM: keyed by the full address, so a client holding an IPv6 /64 can rotate addresses past it (the security log throttle groups by /64).
     pub ip_limiter: DefaultKeyedRateLimiter<IpAddr>,
     /// Limits.
     pub limits: LimitsConfig,
@@ -43,6 +45,8 @@ pub struct AppState {
     pub retention: std::sync::OnceLock<Arc<crate::retention::Retention>>,
     /// Prometheus metrics.
     pub metrics: crate::metrics::Metrics,
+    /// Throttled security event log (authentication failures, rate limits).
+    pub security: SecurityLog,
 }
 
 impl AppState {
@@ -97,6 +101,7 @@ impl AppState {
             limits,
             retention: std::sync::OnceLock::new(),
             metrics: crate::metrics::Metrics::default(),
+            security: SecurityLog::new(),
         })
     }
 
@@ -114,6 +119,54 @@ pub struct Auth {
     pub principal: Principal,
     /// Client address, if known.
     pub ip: Option<IpAddr>,
+    /// Request method and route template, for security events raised after
+    /// authentication (cheap clones: no allocation).
+    method: Method,
+    route: Option<MatchedPath>,
+}
+
+impl AppState {
+    /// Records a rejection on the public listener. Called only on failure
+    /// paths; `who` is a **verified** principal or `None`.
+    fn public_rejection(
+        &self,
+        (reason, claim): (Reason, Option<&str>),
+        status: StatusCode,
+        ip: Option<IpAddr>,
+        method: &Method,
+        route: &str,
+        who: Option<&Principal>,
+    ) {
+        self.security.record(&SecurityEvent {
+            reason,
+            claim,
+            status: status.as_u16(),
+            ip,
+            method,
+            route,
+            listener: Listener::Public,
+            subject: who.map(|p| p.subject.as_str()),
+            tenant: who.map(|p| p.tenant_id),
+            agent: None,
+        });
+    }
+
+    fn parts_rejection(
+        &self,
+        parts: &Parts,
+        reason: Reason,
+        claim: Option<&str>,
+        status: StatusCode,
+        who: Option<&Principal>,
+    ) {
+        let ip = client_ip(
+            &parts.headers,
+            &parts.extensions,
+            &self.limits.trusted_proxies,
+        );
+        let route = crate::metrics::route_template(&parts.extensions);
+        self.public_rejection((reason, claim), status, ip, &parts.method, route, who);
+    }
 }
 
 pub(crate) fn bearer(parts: &Parts) -> Option<String> {
@@ -145,10 +198,33 @@ impl FromRequestParts<Arc<AppState>> for Auth {
         parts: &mut Parts,
         state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
-        let token = bearer(parts)
-            .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-        let principal = state.verifier.verify(&token, now_utc()).await?;
+        let Some(token) = bearer(parts) else {
+            // NIST 800-53 Rev5: AU-2, AU-12 (failed authentication: no bearer token)
+            state.parts_rejection(parts, Reason::Missing, None, StatusCode::UNAUTHORIZED, None);
+            return Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "missing bearer token",
+            ));
+        };
+        let principal = match state.verifier.verify(&token, now_utc()).await {
+            Ok(p) => p,
+            Err(e) => {
+                // NIST 800-53 Rev5: AU-2, AU-12 (failed token verification; no claim of the unverified token is logged)
+                if let Some((reason, claim)) = Reason::from_auth_error(&e) {
+                    state.parts_rejection(parts, reason, claim, StatusCode::UNAUTHORIZED, None);
+                }
+                return Err(e.into());
+            }
+        };
         if state.limiter.check_key(&principal.subject).is_err() {
+            // NIST 800-53 Rev5: AU-2, AU-12 (per-subject rate-limit refusal, with the verified identity)
+            state.parts_rejection(
+                parts,
+                Reason::RateLimitedPrincipal,
+                None,
+                StatusCode::TOO_MANY_REQUESTS,
+                Some(&principal),
+            );
             return Err(ApiError::new(
                 StatusCode::TOO_MANY_REQUESTS,
                 "rate limit exceeded",
@@ -159,7 +235,12 @@ impl FromRequestParts<Arc<AppState>> for Auth {
             &parts.extensions,
             &state.limits.trusted_proxies,
         );
-        Ok(Self { principal, ip })
+        Ok(Self {
+            principal,
+            ip,
+            method: parts.method.clone(),
+            route: parts.extensions.get::<MatchedPath>().cloned(),
+        })
     }
 }
 
@@ -189,6 +270,17 @@ impl AppState {
         match auth.principal.authorize(perm, res, now_utc()) {
             Ok(()) => Ok(()),
             Err(denied) => {
+                if matches!(denied, platform_auth::Denied::Expired) {
+                    // NIST 800-53 Rev5: AU-2, AU-12 (session expired at authorization: 401 for a verified principal)
+                    self.public_rejection(
+                        (Reason::Expired, None),
+                        StatusCode::UNAUTHORIZED,
+                        auth.ip,
+                        &auth.method,
+                        auth.route.as_ref().map_or("unmatched", MatchedPath::as_str),
+                        Some(&auth.principal),
+                    );
+                }
                 if let Some(t) = target {
                     self.audit(
                         auth,
@@ -278,6 +370,15 @@ pub async fn ip_rate_limit(
         &state.limits.trusted_proxies,
     ) && state.ip_limiter.check_key(&ip).is_err()
     {
+        // NIST 800-53 Rev5: AU-2, AU-12 (per-IP rate-limit refusal before authentication)
+        state.public_rejection(
+            (Reason::RateLimitedIp, None),
+            StatusCode::TOO_MANY_REQUESTS,
+            Some(ip),
+            req.method(),
+            crate::metrics::route_template(req.extensions()),
+            None,
+        );
         let mut resp =
             ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded").into_response();
         resp.headers_mut().insert(

@@ -72,6 +72,7 @@ checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 name = "api-gateway"
 version = "0.2.0"
 dependencies = [
+ "api-gateway",
  "axum",
  "governor",
  "http-body-util",
@@ -82,6 +83,7 @@ dependencies = [
  "platform-auth",
  "platform-common",
  "platform-storage",
+ "proptest",
  "rcgen",
  "rustls",
  "scanner-audio",
@@ -3822,6 +3824,7 @@ dependencies = [
  "sharded-slab",
  "smallvec",
  "thread_local",
+ "time",
  "tracing",
  "tracing-core",
  "tracing-log",
