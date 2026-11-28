@@ -318,3 +318,14 @@ service (ADR 0010).
   regression test `stored_telemetry_keeps_the_latest_change`
   (`services/scanner-agent/tests/e2e.rs`).
 - [x] Console code-splitting (from Phase 4).
+- [x] Authentication-failure and rate-limit logging (NIST AU-2, ADR 0013,
+  threats T55–T57): every 401, 429 and agent-listener refusal is a
+  structured event on the always-on `security` log, throttled per source
+  with bounded memory, never containing the token or unverified claims;
+  metrics `radio_security_events_total{reason}`,
+  `radio_security_log_suppressed_total`,
+  `radio_security_log_tracked_sources`; tests in
+  `services/api-gateway/tests/security_log.rs` and the `security_log`
+  unit tests; schema in `docs/operations.md`. Residuals in POA&M item 4
+  (per-replica throttle, verified budget shared by principals, NAT,
+  IPv6 per-IP limiter, rustls handshake failures not logged).

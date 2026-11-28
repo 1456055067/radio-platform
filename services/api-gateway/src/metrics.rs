@@ -64,12 +64,16 @@ impl Metrics {
     }
 }
 
+/// The route template of a request (`/api/v1/scanners/{id}`), or
+/// `unmatched`. Never the concrete path.
+pub(crate) fn route_template(ext: &axum::http::Extensions) -> &str {
+    ext.get::<MatchedPath>()
+        .map_or("unmatched", MatchedPath::as_str)
+}
+
 /// Middleware: times every routed request.
 pub async fn track(State(state): State<Arc<AppState>>, req: Request, next: Next) -> Response {
-    let route = req
-        .extensions()
-        .get::<MatchedPath>()
-        .map_or_else(|| "unmatched".to_owned(), |p| p.as_str().to_owned());
+    let route = route_template(req.extensions()).to_owned();
     let method = req.method().as_str().to_owned();
     let t = Instant::now();
     let resp = next.run(req).await;
@@ -266,6 +270,34 @@ pub fn render(state: &AppState) -> String {
             s.in_flight as f64,
         );
     }
+    // Security log.
+    let sec = state.security.stats();
+    metric(
+        &mut out,
+        "radio_security_events_total",
+        "counter",
+        "Authentication failures and rate-limit refusals by reason, before log throttling.",
+    );
+    for reason in crate::security_log::Reason::ALL {
+        let _ = writeln!(
+            out,
+            "radio_security_events_total{{reason=\"{}\"}} {}",
+            reason.as_str(),
+            sec.events(reason)
+        );
+    }
+    counter(
+        &mut out,
+        "radio_security_log_suppressed_total",
+        "Security events not written individually because of log throttling.",
+        sec.suppressed,
+    );
+    gauge(
+        &mut out,
+        "radio_security_log_tracked_sources",
+        "Sources tracked by the security log throttle on this replica.",
+        sec.tracked_sources as f64,
+    );
     if let Some(r) = state.retention.get()
         && let Some(last) = r.last()
     {

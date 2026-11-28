@@ -26,6 +26,29 @@ middle estimate is shown.
 | `audit/chain_link` | 0.96 µs | SHA-256 link of one audit record (AWS-LC). Appends are bounded by the database transaction, not hashing. |
 | `api/list_scanners_50` | 81.6 µs | `GET /api/v1/scanners` with 50 scanners through the full middleware (per-IP and per-subject limits, JWT verification, ABAC, metrics) on the in-memory store: about 12 000 requests/s per core before TLS and PostgreSQL. |
 
+### Security event log throttle (2026-11-27)
+
+The rejection path only (`SecurityLog::record`, ADR 0013), with no
+subscriber installed: the throttle decision, not the cost of writing a
+line. Run with:
+
+```bash
+cargo bench -p radio-benches --bench hot_paths -- security/
+```
+
+These are **single runs on the development machine**, with no saved
+baseline; the two figures per row are two separate runs (the coder's
+and the performance reviewer's) on 2026-11-27, with no code change between
+them. Treat the spread as machine variance.
+
+| Benchmark | Time (two runs) | What it means |
+|---|---|---|
+| `security/record_one_source_suppressed` | 45.2 ns / 44.48 ns | One source past its per-source limit: every event is counted and suppressed. |
+| `security/record_many_sources_full_table` | 63.4 ns / 68.40 ns | 10 000 sources cycling through the full 4096-slot table, budget spent: most events are untracked. |
+
+The success path does no security-log work; `api/list_scanners_50`
+showed no regression against `main` in an A/B run on the same machine.
+
 ## Not measured yet
 
 - Throughput with PostgreSQL, TLS and many concurrent clients (a load test

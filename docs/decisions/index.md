@@ -17,3 +17,4 @@ was decided, and the consequences. Superseded records stay for history.
 | [ADR 0010: Transcription, search, retention and analytics](0010-transcription-search-retention.md) | Accepted |
 | [ADR 0011: Tamper-evident audit log](0011-tamper-evident-audit.md) | Accepted |
 | [ADR 0012: PostgreSQL transport policy (verified TLS off loopback)](0012-postgres-transport-policy.md) | Accepted |
+| [ADR 0013: Security event log for authentication failures and rate limits](0013-security-event-log.md) | Accepted |
